@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": false,
+  "files.exclude": {
+    "**/*.tsbuildinfo": true,
+    "dist": true,
+    "src-tauri/target": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

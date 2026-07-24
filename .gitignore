@@ -1,0 +1,42 @@
+# Dependencies and generated frontend files
+node_modules/
+dist/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Rust and Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Release and visual-review artifacts
+release/
+output/
+screenshots/
+
+# Local AI and design-tool state
+.agent/
+.agentMemory/
+.clinerules/
+.kilocode/
+.roo/
+canvas/
+.codegraph/*
+!.codegraph/.gitignore
+
+# Logs, editors, and operating-system files
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
