@@ -1,5 +1,5 @@
 import { parse } from "partial-json";
-import type { ReverseResult } from "../types";
+import type { PromptOptimizationOutput, ReverseResult } from "../types";
 
 export function parseStreamingResult(content: string): ReverseResult | null {
   const start = content.indexOf("{");
@@ -13,13 +13,16 @@ export function parseStreamingResult(content: string): ReverseResult | null {
     return {
       analysis: {
         subject: asString(analysis.subject),
+        scene: asString(analysis.scene),
         composition: asString(analysis.composition),
         lighting: asString(analysis.lighting),
+        tonality: asString(analysis.tonality),
         colors: asString(analysis.colors),
         palette: asStringArray(analysis.palette),
         materials: asString(analysis.materials),
         style: asString(analysis.style),
         camera: asString(analysis.camera),
+        postProcessing: asString(analysis.postProcessing),
       },
       prompts: {
         zh: asString(prompts.zh),
@@ -31,6 +34,32 @@ export function parseStreamingResult(content: string): ReverseResult | null {
         createdAt: "",
       },
     };
+  } catch {
+    return null;
+  }
+}
+
+export function parseStreamingOptimization(content: string): PromptOptimizationOutput | null {
+  const value = parsePartialObject(content);
+  if (!value) return null;
+  const prompts = asRecord(value.prompts);
+  const negativePrompts = asRecord(value.negativePrompts);
+  return {
+    prompts: { zh: asString(prompts.zh), en: asString(prompts.en) },
+    negativePrompts: {
+      zh: asString(negativePrompts.zh),
+      en: asString(negativePrompts.en),
+    },
+    metadata: { model: "", elapsedMs: 0, createdAt: "" },
+  };
+}
+
+function parsePartialObject(content: string): Record<string, unknown> | null {
+  const start = content.indexOf("{");
+  if (start < 0) return null;
+  const fence = content.indexOf("```", start);
+  try {
+    return parse(content.slice(start, fence >= 0 ? fence : undefined)) as Record<string, unknown>;
   } catch {
     return null;
   }

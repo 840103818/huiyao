@@ -4,9 +4,8 @@
   "description": "Default capabilities for the main window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
     "core:app:allow-set-app-theme",
     "core:window:allow-start-dragging",
-    "dialog:allow-save"
+    "core:window:allow-set-decorations"
   ]
 }

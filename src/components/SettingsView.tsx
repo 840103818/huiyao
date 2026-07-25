@@ -1,7 +1,8 @@
-import { Button, Checkbox, Form, Input, InputNumber, Message, Modal, Radio, Tag } from "@arco-design/web-react";
-import { IconCheckCircle, IconDesktop, IconLeft, IconLink, IconLock, IconMoon, IconSave, IconSun } from "@arco-design/web-react/icon";
-import { useState } from "react";
-import { getErrorMessage, saveSettings, testConnection } from "../lib/bridge";
+import { Button, Checkbox, Form, Input, InputNumber, Message, Modal, Popconfirm, Radio, Tag } from "@arco-design/web-react";
+import { IconCheckCircle, IconDelete, IconDesktop, IconLeft, IconLink, IconLock, IconMoon, IconSave, IconStorage, IconSun } from "@arco-design/web-react/icon";
+import { useEffect, useState } from "react";
+import { clearOriginalImages, getErrorMessage, getOriginalStorageStats, saveSettings, testConnection } from "../lib/bridge";
+import { formatBytes } from "../lib/image";
 import type { PublicSettings, SettingsInput, ThemeMode } from "../types";
 
 interface SettingsViewProps {
@@ -9,41 +10,64 @@ interface SettingsViewProps {
   onBack: () => void;
   onSaved: (settings: PublicSettings) => void;
   onThemeChange: (theme: ThemeMode) => Promise<void>;
+  onDirtyChange: (dirty: boolean) => void;
+  onOriginalsCleared?: () => void | Promise<void>;
 }
 
-export function SettingsView({ settings, onBack, onSaved, onThemeChange }: SettingsViewProps) {
+export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirtyChange, onOriginalsCleared }: SettingsViewProps) {
   const [message, messageContext] = Message.useMessage();
   const [modal, modalContext] = Modal.useModal();
   const [form] = Form.useForm<SettingsInput>();
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [theme, setTheme] = useState(settings.theme);
+  const [confirmedHttpOrigin, setConfirmedHttpOrigin] = useState(settings.insecureHttpOrigin);
+  const [originalStats, setOriginalStats] = useState({ count: 0, totalBytes: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [clearingOriginals, setClearingOriginals] = useState(false);
+
+  const loadOriginalStats = async () => {
+    setStatsLoading(true);
+    try { setOriginalStats(await getOriginalStorageStats()); }
+    catch (error) { message.error?.(getErrorMessage(error)); }
+    finally { setStatsLoading(false); }
+  };
+  useEffect(() => { void loadOriginalStats(); }, []);
 
   const initialValues: SettingsInput = {
     baseUrl: settings.baseUrl, model: settings.model, timeoutSeconds: settings.timeoutSeconds,
-    theme: settings.theme, apiKey: "", clearApiKey: false,
+    theme: settings.theme, autoSaveHistory: settings.autoSaveHistory,
+    insecureHttpOrigin: settings.insecureHttpOrigin, apiKey: "", clearApiKey: false,
   };
 
-  const handleBack = () => {
-    if (!dirty) { onBack(); return; }
-    modal.confirm?.({
-      title: "放弃未保存的修改？",
-      content: "模型服务配置尚未保存，返回后修改将丢失。",
-      okText: "放弃修改",
-      cancelText: "继续编辑",
-      onOk: onBack,
+  const handleBack = onBack;
+
+  const values = async (): Promise<SettingsInput> => {
+    const input = { ...(await form.validate()), theme };
+    const url = new URL(input.baseUrl);
+    if (url.protocol !== "http:" || isLocalHost(url.hostname)) return input;
+    if (confirmedHttpOrigin === url.origin) return { ...input, insecureHttpOrigin: url.origin };
+    const confirmed = await new Promise<boolean>((resolve) => {
+      modal.confirm?.({
+        title: "确认使用明文 HTTP？",
+        content: `API Key 和请求内容将通过未加密连接发送到 ${url.origin}。仅在可信内网中使用。`,
+        okText: "确认风险并继续",
+        cancelText: "取消",
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
     });
+    if (!confirmed) throw new Error("已取消明文 HTTP 操作");
+    setConfirmedHttpOrigin(url.origin);
+    return { ...input, insecureHttpOrigin: url.origin };
   };
-
-  const values = async (): Promise<SettingsInput> => ({ ...(await form.validate()), theme });
   const handleSave = async () => {
     setSaving(true);
     try {
       const saved = await saveSettings(await values());
       onSaved(saved);
-      setDirty(false);
+      onDirtyChange(false);
       form.setFieldValue("apiKey", "");
       form.setFieldValue("clearApiKey", false);
       message.success?.("设置已保存");
@@ -55,7 +79,7 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange }: Setti
     setTesting(true);
     try {
       const status = await testConnection(await values());
-      message.success?.(`${status.message} · ${status.model}`);
+      message.success?.(`${status.message} · ${status.model}，当前配置尚未保存`);
     } catch (error) {
       if (!(error && typeof error === "object" && "errors" in error)) message.error?.(getErrorMessage(error));
     } finally { setTesting(false); }
@@ -74,24 +98,24 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange }: Setti
           form={form}
           initialValues={initialValues}
           layout="vertical"
-          onChange={() => setDirty(true)}
+          onChange={() => onDirtyChange(true)}
           onSubmit={() => void handleSave()}
         >
           <section className="settings-section">
             <header><IconLink /><div><h2>模型服务</h2><p>OpenAI Chat Completions 兼容接口</p></div></header>
             <div className="settings-fields">
               <Form.Item label="Base URL" field="baseUrl" rules={[{ required: true, message: "请输入 Base URL" }, { match: /^https?:\/\/[^\s]+$/i, message: "请输入有效的 HTTP(S) 地址" }]}>
-                <Input placeholder="https://api.openai.com/v1" />
+                <Input maxLength={2048} placeholder="https://api.openai.com/v1" />
               </Form.Item>
               <Form.Item label="模型名称" field="model" rules={[{ required: true, message: "请输入模型名称" }]}>
-                <Input placeholder="gpt-4.1-mini" />
+                <Input maxLength={200} placeholder="gpt-4.1-mini" />
               </Form.Item>
               <Form.Item
                 className="api-key-item"
                 label={<span>API Key {settings.hasApiKey ? <Tag color="green" icon={<IconCheckCircle />}>已存入钥匙串</Tag> : null}</span>}
                 field="apiKey"
               >
-                <Input.Password prefix={<IconLock />} placeholder={settings.hasApiKey ? "留空则保持现有密钥" : "输入 API Key"} autoComplete="off" />
+                <Input.Password maxLength={4096} prefix={<IconLock />} placeholder={settings.hasApiKey ? "留空则保持现有密钥" : "输入 API Key"} autoComplete="off" />
               </Form.Item>
               <Form.Item label="请求超时" field="timeoutSeconds" rules={[{ required: true, message: "请输入超时时间" }]}>
                 <InputNumber min={10} max={300} suffix="秒" />
@@ -103,6 +127,38 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange }: Setti
               </Form.Item>
             ) : null}
             <Button icon={<IconLink />} loading={testing} onClick={() => void handleTest()}>测试连接</Button>
+          </section>
+          <section className="settings-section">
+            <header><IconSave /><div><h2>历史记录</h2><p>控制生成完成后是否自动写入本地历史</p></div></header>
+            <Form.Item field="autoSaveHistory" triggerPropName="checked" noStyle>
+              <Checkbox>自动保存生成结果到历史记录</Checkbox>
+            </Form.Item>
+          </section>
+          <section className="settings-section original-storage-section">
+            <header><IconStorage /><div><h2>原图存储</h2><p>原图使用 Keychain 密钥加密并保存在应用私有目录</p></div></header>
+            <div className="storage-metrics" aria-busy={statsLoading}>
+              <div><span>已保留原图</span><strong>{statsLoading ? "--" : `${originalStats.count} 张`}</strong></div>
+              <div><span>磁盘占用</span><strong>{statsLoading ? "--" : formatBytes(originalStats.totalBytes)}</strong></div>
+            </div>
+            <Popconfirm
+              title="清理全部原图？"
+              content="此操作不可撤销，分析结果、提示词和缩略图会保留。"
+              okText="永久清理"
+              cancelText="取消"
+              disabled={!originalStats.count || clearingOriginals}
+              onOk={async () => {
+                setClearingOriginals(true);
+                try {
+                  const count = await clearOriginalImages();
+                  await onOriginalsCleared?.();
+                  await loadOriginalStats();
+                  message.success?.(`已清理 ${count} 张原图`);
+                } catch (error) { message.error?.(getErrorMessage(error)); }
+                finally { setClearingOriginals(false); }
+              }}
+            >
+              <Button status="danger" type="outline" icon={<IconDelete />} loading={clearingOriginals} disabled={!originalStats.count}>清理全部原图</Button>
+            </Popconfirm>
           </section>
           <section className="settings-section">
             <header><IconDesktop /><div><h2>外观</h2><p>主题选择会立即保存并同步原生窗口</p></div></header>
@@ -134,4 +190,9 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange }: Setti
       </div>
     </main>
   );
+}
+
+function isLocalHost(hostname: string): boolean {
+  const value = hostname.replace(/^\[|\]$/g, "").toLocaleLowerCase();
+  return value === "localhost" || value === "::1" || value.startsWith("127.");
 }

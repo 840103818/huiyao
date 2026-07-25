@@ -2,14 +2,18 @@
 
 ## 构建
 
-版本号需要同时更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json` 和界面版本文本。
+版本号需要同时更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json`。界面版本直接读取 `package.json`，禁止单独硬编码。
 
 ```bash
 npm run check
+npm audit --omit=dev --registry=https://registry.npmjs.org
+cargo audit --file src-tauri/Cargo.lock
 npm run build:macos:arm64
 ```
 
 当前 macOS 预览版使用 `ld64.lld`，并关闭 release strip，具体环境变量已固化在 `scripts/build-macos-arm64.sh`。
+
+仓库内 `dist/` 不可写时，不使用管理员权限覆盖；先修复产物所有权，或使用 `/tmp/huiyao-ui-dist` 等独立可写目录完成前端验证。
 
 ## 产物
 
@@ -29,5 +33,6 @@ npm run verify:release
 - `CFBundleIconFile` 指向 `icon.icns`。
 - ad-hoc 或正式签名有效。
 - DMG 校验和有效。
+- `docs/assets/ui/current/` 已覆盖为本版本 1440x900 浅色与 1120x720 深色截图，不包含用户图片或模型正文。
 
 公开分发前必须改用 Apple Developer ID 签名并完成 notarization。

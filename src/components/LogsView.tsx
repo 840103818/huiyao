@@ -1,22 +1,24 @@
-import { Button, Empty, Input, Message, Popconfirm, Select, Spin, Table, Tag } from "@arco-design/web-react";
-import { IconDelete, IconDownload, IconLeft, IconRefresh, IconSafe, IconSearch } from "@arco-design/web-react/icon";
+import { Button, Empty, Input, Message, Popconfirm, Select, Spin, Switch, Table, Tag } from "@arco-design/web-react";
+import { IconCopy, IconDelete, IconDownload, IconLeft, IconRefresh, IconSafe, IconSearch } from "@arco-design/web-react/icon";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { clearRuntimeLogs, exportRuntimeLogs, getErrorMessage, loadRuntimeLogs } from "../lib/bridge";
+import { clearRuntimeLogs, exportDiagnostic, exportRuntimeLogs, getErrorMessage, loadRuntimeLogs } from "../lib/bridge";
 import type { RuntimeLogEntry, RuntimeLogLevel } from "../types";
 
-interface LogsViewProps { onBack: () => void }
+interface LogsViewProps { onBack: () => void; requestFilter?: string }
 type LevelFilter = "all" | RuntimeLogLevel;
 type CategoryFilter = "all" | "model" | "system" | "storage";
 
-export function LogsView({ onBack }: LogsViewProps) {
+export function LogsView({ onBack, requestFilter }: LogsViewProps) {
   const [message, messageContext] = Message.useMessage();
   const messageRef = useRef(message);
   messageRef.current = message;
   const [logs, setLogs] = useState<RuntimeLogEntry[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(requestFilter ?? "");
   const [level, setLevel] = useState<LevelFilter>("all");
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(true);
+  const [expandedRowKeys, setExpandedRowKeys] = useState<(string | number)[]>([]);
   const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase());
 
   const refresh = useCallback(async (showLoading = true) => {
@@ -27,9 +29,11 @@ export function LogsView({ onBack }: LogsViewProps) {
   }, []);
   useEffect(() => {
     void refresh();
+    if (!live) return;
     const timer = window.setInterval(() => void refresh(false), 5000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [live, refresh]);
+  useEffect(() => { if (requestFilter) setQuery(requestFilter); }, [requestFilter]);
 
   const filtered = useMemo(() => logs.filter((entry) => {
     if (level !== "all" && entry.level !== level) return false;
@@ -43,7 +47,7 @@ export function LogsView({ onBack }: LogsViewProps) {
     catch (error) { message.error?.(getErrorMessage(error)); }
   };
   const handleExport = async () => {
-    try { await exportRuntimeLogs(filtered); message.success?.("运行日志已导出"); }
+    try { if (await exportRuntimeLogs(filtered)) message.success?.("运行日志已导出"); }
     catch (error) { message.error?.(getErrorMessage(error)); }
   };
 
@@ -66,6 +70,7 @@ export function LogsView({ onBack }: LogsViewProps) {
           <Select value={category} onChange={setCategory} aria-label="按类别筛选" options={categoryOptions} />
           <Select value={level} onChange={setLevel} aria-label="按级别筛选" options={levelOptions} />
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void refresh()}>刷新</Button>
+          <label className="live-refresh"><Switch size="small" checked={live} onChange={setLive} />实时刷新</label>
           <Button icon={<IconDownload />} disabled={!filtered.length} onClick={() => void handleExport()}>导出</Button>
           <Popconfirm title="清空全部运行日志？" content="此操作不可撤销。" okText="清空" cancelText="取消" onOk={handleClear} disabled={!logs.length}>
             <Button status="danger" icon={<IconDelete />} disabled={!logs.length}>清空</Button>
@@ -81,8 +86,10 @@ export function LogsView({ onBack }: LogsViewProps) {
               scroll={{ y: "calc(100vh - 330px)" }}
               data={filtered}
               columns={columns}
+              expandedRowKeys={expandedRowKeys}
+              onExpandedRowsChange={setExpandedRowKeys}
               noDataElement={<Empty description={logs.length ? "没有匹配的日志" : "暂无运行日志"} />}
-              expandedRowRender={(entry) => <LogDetails entry={entry} />}
+              expandedRowRender={(entry) => <LogDetails entry={entry} onMessage={(value, kind) => message[kind]?.(value)} />}
               expandProps={{ expandRowByClick: true }}
             />
           </Spin>
@@ -102,9 +109,21 @@ const columns = [
   { title: "摘要", dataIndex: "message", ellipsis: true },
 ];
 
-function LogDetails({ entry }: { entry: RuntimeLogEntry }) {
+function LogDetails({ entry, onMessage }: { entry: RuntimeLogEntry; onMessage: (value: string, kind: "success" | "error") => void }) {
   const detailEntries = Object.entries(entry.details ?? {});
-  return <dl className="log-details">{detailEntries.length ? detailEntries.map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatDetail(value)}</dd></div>) : <div><dt>details</dt><dd>--</dd></div>}</dl>;
+  const requestId = [entry.details.providerRequestId, entry.details.interactionId].find((value) => typeof value === "string") as string | undefined;
+  const diagnosticId = typeof entry.details.diagnosticId === "string" ? entry.details.diagnosticId : undefined;
+  const copyRequestId = async () => {
+    if (!requestId) return;
+    try { await navigator.clipboard.writeText(requestId); onMessage("请求 ID 已复制", "success"); }
+    catch { onMessage("无法访问剪贴板", "error"); }
+  };
+  const saveDiagnostic = async () => {
+    if (!diagnosticId) return;
+    try { if (await exportDiagnostic(diagnosticId)) onMessage("诊断信息已导出", "success"); }
+    catch (error) { onMessage(getErrorMessage(error), "error"); }
+  };
+  return <div className="log-detail-wrap"><dl className="log-details">{detailEntries.length ? detailEntries.map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatDetail(value)}</dd></div>) : <div><dt>details</dt><dd>--</dd></div>}</dl><div className="log-detail-actions">{requestId ? <Button size="mini" icon={<IconCopy />} onClick={() => void copyRequestId()}>复制请求 ID</Button> : null}{diagnosticId ? <Button size="mini" icon={<IconDownload />} onClick={() => void saveDiagnostic()}>导出诊断</Button> : null}</div></div>;
 }
 function formatTimestamp(value: string): string {
   const date = new Date(value);

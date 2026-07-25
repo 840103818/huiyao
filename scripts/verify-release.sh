@@ -9,13 +9,17 @@ DMG_PATH="${2:-${ROOT_DIR}/release/绘钥_${VERSION}_aarch64.dmg}"
 test -d "$APP_PATH"
 test -f "$DMG_PATH"
 
-xattr -cr "$APP_PATH"
-codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+VERIFY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/huiyao-verify.XXXXXX")"
+VERIFY_APP="$VERIFY_DIR/绘钥.app"
+trap 'rm -rf "$VERIFY_DIR"' EXIT
+ditto --noextattr --noqtn "$APP_PATH" "$VERIFY_APP"
+xattr -cr "$VERIFY_APP"
+codesign --verify --deep --strict --verbose=2 "$VERIFY_APP"
 
-test "$(plutil -extract CFBundleIdentifier raw "$APP_PATH/Contents/Info.plist")" = "com.huiyao.studio"
-test "$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")" = "$VERSION"
-test "$(plutil -extract CFBundleIconFile raw "$APP_PATH/Contents/Info.plist")" = "icon.icns"
-test "$(lipo -archs "$APP_PATH/Contents/MacOS/huiyao")" = "arm64"
+test "$(plutil -extract CFBundleIdentifier raw "$VERIFY_APP/Contents/Info.plist")" = "com.huiyao.studio"
+test "$(plutil -extract CFBundleShortVersionString raw "$VERIFY_APP/Contents/Info.plist")" = "$VERSION"
+test "$(plutil -extract CFBundleIconFile raw "$VERIFY_APP/Contents/Info.plist")" = "icon.icns"
+test "$(lipo -archs "$VERIFY_APP/Contents/MacOS/huiyao")" = "arm64"
 
 hdiutil verify "$DMG_PATH"
 printf 'Verified 绘钥 %s (arm64).\n' "$VERSION"

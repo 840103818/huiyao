@@ -1,8 +1,9 @@
 import { Button, Tooltip } from "@arco-design/web-react";
-import { IconHistory, IconList, IconMenuFold, IconMenuUnfold, IconSettings } from "@arco-design/web-react/icon";
+import { IconList, IconMenuFold, IconMenuUnfold, IconSettings } from "@arco-design/web-react/icon";
 import type { GenerationState } from "../types";
 import { isDesktopApp } from "../lib/bridge";
 import brandMark from "../assets/huiyao-mark.png";
+import packageMetadata from "../../package.json";
 
 export type AppView = "workspace" | "settings" | "logs";
 
@@ -11,6 +12,7 @@ interface ToolbarProps {
   compactHistory: boolean;
   view: AppView;
   generationState: GenerationState;
+  elapsedMs: number;
   onToggleSidebar: () => void;
   onNavigate: (view: AppView) => void;
 }
@@ -20,6 +22,7 @@ export function Toolbar({
   compactHistory,
   view,
   generationState,
+  elapsedMs,
   onToggleSidebar,
   onNavigate,
 }: ToolbarProps) {
@@ -32,19 +35,20 @@ export function Toolbar({
         {!isDesktopApp() ? (
           <div className="traffic-lights" aria-hidden="true"><i /><i /><i /></div>
         ) : null}
-        {workspaceOpen && !compactHistory ? (
+        {workspaceOpen ? (
           <ToolbarButton label={historyLabel} onClick={onToggleSidebar}>
-            {sidebarCollapsed ? <IconMenuUnfold /> : <IconMenuFold />}
+            {compactHistory || sidebarCollapsed ? <IconMenuUnfold /> : <IconMenuFold />}
           </ToolbarButton>
-        ) : !workspaceOpen ? (
+        ) : (
           <ToolbarButton label="返回工作台" onClick={() => onNavigate("workspace")}>
             <IconMenuUnfold />
           </ToolbarButton>
-        ) : null}
+        )}
+        <span className="toolbar-separator" aria-hidden="true" />
         <div className="wordmark" data-tauri-drag-region>
           <img src={brandMark} alt="" />
           <strong>绘钥</strong>
-          <span>0.4.2</span>
+          <span>v{packageMetadata.version}</span>
         </div>
       </div>
 
@@ -52,24 +56,26 @@ export function Toolbar({
         <div className="engine-status" data-state={generationState} data-tauri-drag-region>
           <i />
           <strong>{toolbarState(generationState)}</strong>
+          {isActiveState(generationState) ? <time>{(elapsedMs / 1000).toFixed(1)} 秒</time> : null}
         </div>
       ) : (
         <div className="toolbar-title" data-tauri-drag-region>{view === "settings" ? "系统设置" : "系统运行日志"}</div>
       )}
 
       <div className="toolbar-actions">
-        {workspaceOpen && compactHistory ? (
-          <ToolbarButton label="历史记录" onClick={onToggleSidebar}><IconHistory /></ToolbarButton>
-        ) : null}
-        <ToolbarButton label={view === "logs" ? "返回工作台" : "运行日志"} selected={view === "logs"} onClick={() => onNavigate(view === "logs" ? "workspace" : "logs")}>
+        <ToolbarButton label="运行日志" selected={view === "logs"} onClick={() => onNavigate("logs")}>
           <IconList />
         </ToolbarButton>
-        <ToolbarButton label={view === "settings" ? "返回工作台" : "设置"} selected={view === "settings"} onClick={() => onNavigate(view === "settings" ? "workspace" : "settings")}>
+        <ToolbarButton label="设置" selected={view === "settings"} onClick={() => onNavigate("settings")}>
           <IconSettings />
         </ToolbarButton>
       </div>
     </header>
   );
+}
+
+function isActiveState(state: GenerationState): boolean {
+  return ["connecting", "streaming", "fallback", "stopping"].includes(state);
 }
 
 function ToolbarButton({ label, selected, onClick, children }: { label: string; selected?: boolean; onClick: () => void; children: React.ReactNode }) {

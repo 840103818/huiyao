@@ -5,6 +5,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -56,8 +59,7 @@ pub fn append(
         compact(path)?;
     }
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| CommandError::new("log_write", error.to_string()))?;
+        crate::store::ensure_private_dir(parent, "log_write")?;
     }
     let sequence = LOG_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let entry = RuntimeLogEntry {
@@ -72,12 +74,18 @@ pub fn append(
     let mut line = serde_json::to_vec(&entry)
         .map_err(|error| CommandError::new("log_serialize", error.to_string()))?;
     line.push(b'\n');
-    OpenOptions::new()
-        .create(true)
-        .append(true)
+    let mut options = OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    options
         .open(path)
         .and_then(|mut file| file.write_all(&line))
-        .map_err(|error| CommandError::new("log_write", error.to_string()))
+        .map_err(|error| CommandError::new("log_write", error.to_string()))?;
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|error| CommandError::new("log_write", error.to_string()))?;
+    Ok(())
 }
 
 pub fn read(path: &Path) -> Result<Vec<RuntimeLogEntry>, CommandError> {
@@ -93,7 +101,7 @@ pub fn clear(path: &Path) -> Result<(), CommandError> {
     if !path.exists() {
         return Ok(());
     }
-    fs::write(path, []).map_err(|error| CommandError::new("log_clear", error.to_string()))
+    crate::store::write_private_file(path, &[], "log_clear")
 }
 
 fn compact(path: &Path) -> Result<(), CommandError> {
@@ -107,12 +115,15 @@ fn compact(path: &Path) -> Result<(), CommandError> {
             .map_err(|error| CommandError::new("log_serialize", error.to_string()))?;
         body.push(b'\n');
     }
-    fs::write(path, body).map_err(|error| CommandError::new("log_write", error.to_string()))
+    crate::store::write_private_file(path, &body, "log_write")
 }
 
 fn read_chronological(path: &Path) -> Result<Vec<RuntimeLogEntry>, CommandError> {
     if !path.exists() {
         return Ok(Vec::new());
+    }
+    if path.metadata().map(|value| value.len()).unwrap_or(0) > MAX_LOG_BYTES * 2 {
+        return Err(CommandError::new("log_read", "运行日志文件超过安全限制"));
     }
     let body = fs::read_to_string(path)
         .map_err(|error| CommandError::new("log_read", error.to_string()))?;

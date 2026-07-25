@@ -1,6 +1,6 @@
 [package]
 name = "huiyao"
-version = "0.4.2"
+version = "0.8.0"
 description = "A macOS image reverse prompt workbench"
 authors = ["Huiyao Studio"]
 edition = "2021"
@@ -17,9 +17,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
+chacha20poly1305 = { version = "0.10", features = ["stream"] }
 keyring = { version = "3.6", features = ["apple-native"] }
 futures-util = "0.3"
+imagesize = "0.14"
+kamadak-exif = "0.6"
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

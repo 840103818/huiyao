@@ -1,0 +1,29 @@
+# 绘钥 0.8.0 实施记录
+
+## 目标
+
+- 完成 0.7.1 安全与性能加固。
+- 增加提示词手工派生版本、版本比较、真实 EXIF、剪贴板导入和多格式导出。
+- 保持现有流式协议、原图加密边界和未提交改动兼容。
+
+## 进度
+
+- 2026-07-25：完成仓库、CodeGraph、现有安全边界和用户工作流审查。
+- 2026-07-25：开始实施安全性能与 0.8.0 单图精修能力。
+- 2026-07-25：完成提示词手工派生版本、版本上限、双栏比较与历史兼容。
+- 2026-07-25：完成 EXIF 白名单提取、剪贴板图片导入和 Markdown/JSON/纯文本原生导出。
+- 2026-07-25：完成共享 HTTP Client、模型并发限制、Channel/窗口关闭取消、流式 UI 合并与阻塞文件任务迁移。
+- 2026-07-25：完成 capability、CSP、诊断脱敏、本地权限、原图暂存容量和事务式原图清理加固。
+- 2026-07-25：完成设置/日志懒加载、生产分包和 0.8.0 文档及界面快照更新。
+
+## 验证状态
+
+- `npm run check`：通过；前端 11 个测试文件共 55 项通过，生产构建通过，Rust 50 项通过，`cargo fmt --check` 通过。
+- `npm audit --omit=dev --registry=https://registry.npmjs.org`：通过，生产依赖 0 个漏洞。
+- `cargo audit --file src-tauri/Cargo.lock`：通过，无漏洞；记录 17 条跨平台依赖维护状态警告，Apple Silicon 目标不编译其中的 Linux GTK 依赖。
+- `git diff --check`：通过。
+- `cargo tauri dev`：成功启动 `target/debug/huiyao`，原生窗口冒烟通过。
+- `browser-skill`：浏览器扩展未连接，按约定回退 Playwright WebKit。
+- Playwright：检查 1440x900 浅色、1120x720 深色、参数抽屉、拖入替换、流式生成、EXIF 抽屉、提示词优化和版本比较；未发现横向溢出、遮挡或文字重叠。
+- `docs/assets/ui/current/`：已覆盖 0.8.0 双尺寸、双主题和关键交互截图。
+- `codegraph sync`：通过，已同步 19 个变更文件。

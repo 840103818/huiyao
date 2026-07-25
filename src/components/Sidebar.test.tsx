@@ -9,7 +9,7 @@ const item: HistoryItem = {
   inputSummary: "sample.png",
   thumbnail: "data:image/jpeg;base64,thumb",
   result: {
-    analysis: { subject: "主体", composition: "构图", lighting: "光线", colors: "色彩", palette: [], materials: "材质", style: "风格", camera: "镜头" },
+    analysis: { subject: "主体", scene: "场景背景", composition: "构图", lighting: "光线", tonality: "影调曝光", colors: "色彩", palette: [], materials: "材质", style: "风格", camera: "镜头成像", postProcessing: "后期处理" },
     prompts: { zh: "中文提示词", en: "English prompt" },
     metadata: { model: "test-model", elapsedMs: 100, totalTokens: 12, createdAt: "2026-01-01T00:00:00Z" },
   },

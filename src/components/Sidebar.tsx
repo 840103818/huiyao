@@ -1,5 +1,5 @@
 import { Badge, Button, Dropdown, Empty, Input, Menu, Modal, Popconfirm, Tooltip } from "@arco-design/web-react";
-import { IconCopy, IconDelete, IconEdit, IconImage, IconSearch } from "@arco-design/web-react/icon";
+import { IconCopy, IconDelete, IconDownload, IconEdit, IconImage, IconSearch } from "@arco-design/web-react/icon";
 import { useDeferredValue, useState } from "react";
 import type { HistoryItem } from "../types";
 
@@ -14,17 +14,18 @@ interface SidebarProps {
   onDelete: (id: string) => void;
   onCopy: (item: HistoryItem, kind: HistoryCopyKind) => void;
   onRename: (id: string, title: string) => Promise<void>;
+  onExportOriginal?: (id: string) => void;
   onClear: () => void;
 }
 
-export function Sidebar({ items, activeId, query, onQueryChange, onSelect, onDelete, onCopy, onRename, onClear }: SidebarProps) {
+export function Sidebar({ items, activeId, query, onQueryChange, onSelect, onDelete, onCopy, onRename, onExportOriginal, onClear }: SidebarProps) {
   const [contextId, setContextId] = useState<string>();
   const [renameTarget, setRenameTarget] = useState<HistoryItem>();
   const [renameTitle, setRenameTitle] = useState("");
   const [renaming, setRenaming] = useState(false);
   const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase());
   const filtered = deferredQuery
-    ? items.filter((item) => `${item.title} ${item.inputSummary}`.toLocaleLowerCase().includes(deferredQuery))
+    ? items.filter((item) => historySearchText(item).includes(deferredQuery))
     : items;
   const normalizedTitle = renameTitle.trim();
 
@@ -70,11 +71,13 @@ export function Sidebar({ items, activeId, query, onQueryChange, onSelect, onDel
                   else if (key === "copy-en") onCopy(item, "en");
                   else if (key === "copy-all") onCopy(item, "all");
                   else if (key === "rename") openRename(item);
+                  else if (key === "export-original") onExportOriginal?.(item.id);
                 }}
               >
-                <Menu.Item key="copy-zh" disabled={!item.result.prompts.zh}><IconCopy />复制中文提示词</Menu.Item>
-                <Menu.Item key="copy-en" disabled={!item.result.prompts.en}><IconCopy />复制英文提示词</Menu.Item>
+                <Menu.Item key="copy-zh" disabled={!historyPrompts(item).zh}><IconCopy />复制中文提示词</Menu.Item>
+                <Menu.Item key="copy-en" disabled={!historyPrompts(item).en}><IconCopy />复制英文提示词</Menu.Item>
                 <Menu.Item key="copy-all"><IconCopy />复制完整结果</Menu.Item>
+                <Menu.Item key="export-original" disabled={!item.originalImage}><IconDownload />导出原图</Menu.Item>
                 <Menu.Item key="rename"><IconEdit />修改标题</Menu.Item>
               </Menu>
             )}
@@ -100,9 +103,9 @@ export function Sidebar({ items, activeId, query, onQueryChange, onSelect, onDel
               <div className="history-copy">
                 <strong title={item.title}>{item.title}</strong>
                 <span>{formatHistoryTime(item.createdAt)}</span>
-                <small>仅保留缩略图</small>
+                <small className={item.originalImage ? "original-retained" : undefined}>{item.originalImage ? "原图已保留" : "仅保留缩略图"}</small>
               </div>
-              <Popconfirm title="删除这条历史记录？" okText="删除" cancelText="取消" onOk={() => onDelete(item.id)}>
+              <Popconfirm title="删除这条历史记录？" content={item.originalImage ? "关联原图也会被永久删除。" : undefined} okText="删除" cancelText="取消" onOk={() => onDelete(item.id)}>
                 <Tooltip content="删除记录">
                   <Button
                     className="history-delete"
@@ -147,6 +150,23 @@ export function Sidebar({ items, activeId, query, onQueryChange, onSelect, onDel
       </Modal>
     </aside>
   );
+}
+
+function historySearchText(item: HistoryItem): string {
+  const prompts = historyPrompts(item);
+  return [
+    item.title,
+    item.inputSummary,
+    ...Object.values(item.result.analysis),
+    ...Object.values(item.captureMetadata ?? {}),
+    prompts.zh,
+    prompts.en,
+  ].flat().join(" ").toLocaleLowerCase();
+}
+
+function historyPrompts(item: HistoryItem) {
+  const active = item.result.promptVersions?.find((version) => version.id === item.result.activePromptVersionId);
+  return active?.prompts ?? item.result.prompts;
 }
 
 function formatHistoryTime(value: string): string {

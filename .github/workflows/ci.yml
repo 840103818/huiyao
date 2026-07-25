@@ -18,8 +18,8 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -30,6 +30,8 @@ jobs:
           rustup component add rustfmt
       - name: Install dependencies
         run: npm ci
+      - name: npm production dependency audit
+        run: npm audit --omit=dev --registry=https://registry.npmjs.org
       - name: Frontend tests
         run: npm test
       - name: Frontend build
@@ -38,3 +40,7 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Rust dependency audit
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          working-directory: src-tauri

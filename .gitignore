@@ -28,6 +28,7 @@ screenshots/
 .kilocode/
 .roo/
 canvas/
+.playwright-cli/
 .codegraph/*
 !.codegraph/.gitignore
 
