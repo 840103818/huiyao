@@ -13,6 +13,7 @@ mod tests {
             auto_save_history: true,
             insecure_http_origin: None,
             workspace: Default::default(),
+            ..Default::default()
         }
     }
 

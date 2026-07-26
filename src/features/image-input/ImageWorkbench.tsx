@@ -43,6 +43,7 @@ interface ImageWorkbenchProps {
   hasApiKey?: boolean;
   hasUnsavedResult?: boolean;
   onImageFile: (file: File) => void | Promise<void>;
+  onImageFiles?: (files: File[]) => void | Promise<void>;
   onRequirementsChange: (value: string) => void;
   onOutputLanguageChange: (value: OutputLanguage) => void;
   onDetailLevelChange: (value: DetailLevel) => void;
@@ -58,7 +59,7 @@ interface ImageWorkbenchProps {
 
 export function ImageWorkbench({
   image, displayImage, imageInfo, requirements, outputLanguage, detailLevel, zoom, fitMode,
-  loading, generationState, hasApiKey = true, onImageFile, onRequirementsChange, onOutputLanguageChange,
+  loading, generationState, hasApiKey = true, onImageFile, onImageFiles, onRequirementsChange, onOutputLanguageChange,
   onDetailLevelChange, onZoomChange, onFitModeChange, onGenerate, onStop, onConfigure,
   originalStatus = "thumbnail", onExportOriginal, onRemoveImage, hasUnsavedResult = false,
   elapsedMs = 0, firstTokenMs, requestStarted = false, receivedCharacters = 0, completedItems = 0, totalItems = 10,
@@ -216,8 +217,9 @@ export function ImageWorkbench({
     dragDepthRef.current = 0;
     setDragActive(false);
     if (loading) return;
-    const file = event.dataTransfer.files.item(0);
-    if (file) chooseFile(file);
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length > 1 && onImageFiles) void Promise.resolve(onImageFiles(files));
+    else if (files[0]) chooseFile(files[0]);
   };
   const handleStageKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!displayImage) return;
@@ -288,6 +290,7 @@ export function ImageWorkbench({
               <Upload
                 className="drop-target"
                 drag
+                multiple
                 accept="image/png,image/jpeg,image/webp"
                 showUploadList={false}
                 autoUpload={false}

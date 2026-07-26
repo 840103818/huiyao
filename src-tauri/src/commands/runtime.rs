@@ -24,6 +24,17 @@ pub(crate) fn run() {
                 .map_err(|error| std::io::Error::other(error.message))?;
             store::ensure_private_dir(&state.original_staging_path(), "original_staging_setup")
                 .map_err(|error| std::io::Error::other(error.message))?;
+            let legacy_history = store::read_history(&state.history_path()).unwrap_or_default();
+            workspace_store::initialize(&state.workspace_path(), &legacy_history)
+                .map_err(|error| std::io::Error::other(error.message))?;
+            let _ = workspace_store::pause_active_tasks(&state.workspace_path());
+            if let Ok(assets) = workspace_store::purge_expired(&state.workspace_path()) {
+                for asset in assets {
+                    if let Ok(quarantine) = original_image::quarantine_original(&state.originals_path(), &asset) {
+                        let _ = original_image::finalize_quarantined_original(&quarantine);
+                    }
+                }
+            }
             if let Err(error) = original_image::cleanup_staging(
                 &state.original_staging_path(),
                 Duration::from_secs(24 * 60 * 60),
@@ -95,6 +106,9 @@ pub(crate) fn run() {
                 tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
             ) {
                 let state = window.state::<AppState>();
+                if let Ok(_guard) = state.storage_lock.lock() {
+                    let _ = workspace_store::pause_active_tasks(&state.workspace_path());
+                }
                 let cancelled = state.cancel_all_requests();
                 if cancelled > 0 {
                     state.log(
@@ -129,7 +143,35 @@ pub(crate) fn run() {
             export_runtime_logs,
             export_diagnostic,
             load_runtime_logs,
-            clear_runtime_logs
+            clear_runtime_logs,
+            list_projects,
+            create_project,
+            rename_project,
+            delete_project,
+            list_project_tasks,
+            get_project_task,
+            import_project_task,
+            update_project_task_status,
+            complete_project_task,
+            fail_project_task,
+            set_project_task_favorite,
+            set_project_task_tags,
+            move_project_tasks,
+            reorder_project_tasks,
+            duplicate_project_task,
+            delete_project_tasks,
+            get_batch_progress,
+            list_reverse_presets,
+            save_reverse_preset,
+            delete_reverse_preset,
+            list_trash,
+            restore_trash_entry,
+            permanently_delete_trash_entry,
+            empty_trash,
+            load_workspace_original_image,
+            export_workspace_original_image,
+            export_project_tasks,
+            save_workspace_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running 绘钥");
@@ -200,4 +242,3 @@ fn optimization_target_name(value: PromptOptimizationTarget) -> &'static str {
         PromptOptimizationTarget::Sdxl => "sdxl",
     }
 }
-

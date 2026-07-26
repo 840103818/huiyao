@@ -11,10 +11,19 @@
 3. 检查工作区状态，不覆盖用户尚未提交的改动。
 4. 不读取、输出或提交 API Key、Token、钥匙串内容、图片 Data URL、用户原图和模型正文。
 
+## Git 工作流
+
+- 功能开发和缺陷修复必须在独立分支进行，不直接修改或提交到 `master`。
+- 建立分支前保留当前工作区内容，不自动 rebase、merge、reset 或覆盖本地修改。
+- 分支内完成代码、测试、文档和产物验证后，报告分支名、验证结果和差异摘要。
+- 不自动合并到 `master`；最终必须提醒用户人工检查并合并。
+- 本地 `master` 与远端分叉时，不擅自拉取、变基或强制推送。
+
 ## 目录边界
 
 - `src/app/`：应用装配、Shell、页面路由和顶层状态。
 - `src/features/`：按图片输入、生成、分析、提示词、历史、设置和诊断聚合界面与测试。
+- `src/features/projects/`：项目、任务队列、预设、筛选、废纸篓和批量交互。
 - `src/infrastructure/tauri/`：Tauri IPC 和浏览器降级实现。
 - `src/shared/contracts/`：前端跨功能、跨端数据契约。
 - `src/styles/`：全局 Token、基础、Arco、Shell 和响应式样式。
@@ -33,6 +42,7 @@
 - 不在 WebView 中持久化 API Key，不在日志中记录请求正文或模型响应正文。
 - 流式协议、历史、设置和 IPC 变更必须同步更新 TypeScript、Rust、浏览器降级实现和测试。
 - `PromptVersion`、EXIF 白名单和导出结构变更必须同时核对前端与 Rust 序列化。
+- `workspace.sqlite3` 结构变更必须增加幂等迁移和回滚测试；旧 `history.json` 只读保留，不得覆盖。
 - Vite 配置以 `vite.config.ts` 为唯一来源。
 - 用户可见文本默认使用简体中文；模型名、请求 ID、`API Key`、`Base URL` 等技术标识可保留英文。
 - 修改保持聚焦；能复用不新增抽象，能配置解决不新增代码。

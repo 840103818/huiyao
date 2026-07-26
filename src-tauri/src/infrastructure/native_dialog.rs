@@ -59,3 +59,33 @@ pub(crate) async fn export_file(
     );
     Ok(true)
 }
+
+pub(crate) async fn choose_save_path(
+    app: &AppHandle,
+    filename: &str,
+    filter_name: &str,
+    extensions: &[&str],
+) -> Result<Option<std::path::PathBuf>, CommandError> {
+    let app = app.clone();
+    let filename = filename.to_owned();
+    let filter_name = filter_name.to_owned();
+    let extensions = extensions
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    tauri::async_runtime::spawn_blocking(move || {
+        let extension_refs = extensions.iter().map(String::as_str).collect::<Vec<_>>();
+        app.dialog()
+            .file()
+            .add_filter(filter_name, &extension_refs)
+            .set_file_name(filename)
+            .blocking_save_file()
+    })
+    .await
+    .map_err(|error| CommandError::new("dialog_failed", error.to_string()))?
+    .map(|path| {
+        path.into_path()
+            .map_err(|error| CommandError::new("export_path_invalid", error.to_string()))
+    })
+    .transpose()
+}

@@ -1,8 +1,8 @@
 # 绘钥
 
-绘钥是使用 React、TypeScript、Arco Design 和 Tauri 2 构建的 macOS 图片反向提示词工作台。应用从图片提取摄影测定结果，生成中英文提示词，并支持流式输出、提示词精修、历史记录、原图加密保存和运行诊断。
+绘钥是使用 React、TypeScript、Arco Design 和 Tauri 2 构建的 macOS 本地数字暗房工作台。它以项目组织图片任务，批量完成摄影测定、双语提示词和提示词精修，并提供加密原图、EXIF、预设、标签、废纸篓、批量导出与运行诊断。
 
-当前版本：`0.8.4`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
+当前版本：`1.0.0`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
 
 ![绘钥工作台](docs/assets/ui/current/workspace-light-1440x900.png)
 
@@ -13,7 +13,16 @@ npm ci
 npm run dev:desktop
 ```
 
-首次使用时在“设置”中配置 OpenAI Chat Completions 兼容服务的 `Base URL`、`API Key` 和模型名。浏览器开发模式用于界面调试，不支持模型请求、Keychain、原图加密和原生导出。
+首次使用时应用会创建“我的项目”。在“设置”中配置 OpenAI Chat Completions 兼容服务的 `Base URL`、`API Key` 和模型名，然后导入 1 至 100 张图片并启动队列。浏览器开发模式仅用于旧单图界面调试，不支持项目数据库、模型请求、Keychain、原图加密和原生导出。
+
+## 1.0 工作流
+
+1. 在左栏新建或选择项目，并选择反推预设。
+2. 单次导入最多 100 张 PNG、JPEG 或 WebP，总大小不超过 1 GB。
+3. 启动队列；默认串行，可在设置中选择两个并发。暂停会等待当前任务结束，停止会取消活动请求。
+4. 使用状态、收藏、原图和全文搜索筛选任务；结果可继续精修或创建关联副本重新生成。
+5. 批量导出 Markdown、JSON、纯提示词或原图 ZIP。包含原图时，图片会以未加密形式写入导出文件。
+6. 删除内容先进入本地废纸篓，30 天后自动永久清理。
 
 ## 常用命令
 
@@ -51,12 +60,14 @@ artifacts/             本地发布、视觉检查和测试产物，不提交 Gi
 ## 文档导航
 
 - [产品与使用说明](docs/product/overview.md)
+- [项目工作台操作说明](docs/product/workspace.md)
 - [界面设计系统](docs/design/ui-system.md)
 - [交互规范](docs/design/interaction.md)
 - [总体架构](docs/engineering/architecture.md)
 - [前端架构](docs/engineering/frontend.md)
 - [后端架构](docs/engineering/backend.md)
 - [IPC 契约](docs/engineering/ipc-contracts.md)
+- [数据迁移](docs/engineering/data-migration.md)
 - [安全边界](docs/engineering/security.md)
 - [测试策略](docs/engineering/testing.md)
 - [开发指南](docs/operations/development.md)
@@ -69,6 +80,7 @@ artifacts/             本地发布、视觉检查和测试产物，不提交 Gi
 - API Key 仅保存在 macOS Keychain，不写入 WebView、本地 JSON 或运行日志。
 - 模型请求禁止自动重定向；非本机明文 HTTP 地址需要按 Origin 明确确认。
 - 原图使用独立 Keychain 密钥和 XChaCha20-Poly1305 加密后保存在应用私有目录。
+- 项目、任务、标签、预设和软删除状态保存在启用 WAL 与外键的私有 `workspace.sqlite3` 中。
 - 日志不记录图片、提示词正文、API Key 或模型原始正文。
 - 结果、日志、诊断和原图通过 Rust 原生保存对话框导出，WebView 不接收任意文件路径。
 

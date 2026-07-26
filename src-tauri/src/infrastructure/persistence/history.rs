@@ -166,7 +166,7 @@ fn validate_history(items: &[HistoryItem]) -> Result<(), CommandError> {
     Ok(())
 }
 
-fn validate_thumbnail(value: &str) -> Result<(), CommandError> {
+pub(crate) fn validate_thumbnail(value: &str) -> Result<(), CommandError> {
     if value.len() > MAX_THUMBNAIL_BYTES {
         return Err(CommandError::new(
             "history_thumbnail_invalid",
@@ -194,4 +194,3 @@ fn validate_thumbnail(value: &str) -> Result<(), CommandError> {
     }
     Ok(())
 }
-

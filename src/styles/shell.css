@@ -26,9 +26,18 @@
 .engine-status[data-state="streaming"] i { animation: signal-pulse 1.2s ease-in-out infinite; }
 .engine-status[data-state="fallback"] i { background: var(--warning); }
 .engine-status[data-state="complete"] i { background: var(--success); }
+.workspace-location { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.workspace-location > span, .workspace-location > strong { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-location > b { color: var(--faint); font-weight: 400; }.workspace-location > strong { color: var(--text); font-weight: 650; }
+.workspace-location > i { width: 5px; height: 5px; margin-left: 3px; border-radius: 50%; background: var(--faint); }
+.workspace-location[data-state="connecting"] > i, .workspace-location[data-state="streaming"] > i, .workspace-location[data-state="fallback"] > i { background: var(--brand); animation: signal-pulse 1.4s ease-in-out infinite; }
+.workspace-location[data-state="complete"] > i { background: var(--success); }
+.workspace-location > em, .workspace-location > small, .workspace-location > time { color: var(--muted); font-size: 10px; font-style: normal; }
+.workspace-location > small { padding-left: 7px; border-left: 1px solid var(--border); }
+.command-list { display: grid; gap: 3px; }.command-list .arco-btn { justify-content: space-between; text-align: left; }.command-list kbd { color: var(--muted); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }.batch-export-options { display: grid; gap: 10px; }
 .toolbar-title { font-size: 14px; font-weight: 650; }
 
-.workspace { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.workspace { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 0; overflow: hidden; }
 .workspace.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
 .sidebar { display: grid; grid-template-rows: 32px 34px minmax(0, 1fr) 32px; gap: 10px; min-width: 0; min-height: 0; padding: 12px 10px; border-right: 1px solid var(--border); background: var(--sidebar-bg); }
 .sidebar-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }

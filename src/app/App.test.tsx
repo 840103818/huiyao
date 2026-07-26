@@ -43,6 +43,9 @@ const settings: PublicSettings = {
   hasApiKey: true,
   autoSaveHistory: true,
   workspace: { outputLanguage: "chinese", detailLevel: "expert", fitMode: "contain" },
+  batchConcurrency: 1,
+  storageQuotaBytes: 10 * 1024 * 1024 * 1024,
+  progressiveDisclosure: true,
 };
 
 const image: PreparedImage = {

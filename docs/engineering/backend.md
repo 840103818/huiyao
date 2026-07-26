@@ -1,5 +1,11 @@
 # Rust 后端架构
 
+## SQLite 工作区
+
+`infrastructure/persistence/workspace.rs` 是项目数据的唯一持久化入口。它负责 Schema、WAL/外键、分页搜索、状态机、标签、预设、软删除和旧历史迁移。Tauri 适配位于 `commands/workspace.rs`，ZIP 编排位于 `application/workspace_export.rs`。
+
+数据库只保存结构化 JSON 和原图资产 ID。加密字节继续由 `infrastructure/images/` 管理，Keychain 服务名和原图文件格式保持不变。
+
 ## 层次
 
 - `bootstrap.rs`：公开桌面启动入口。

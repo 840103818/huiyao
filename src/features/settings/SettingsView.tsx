@@ -1,4 +1,4 @@
-import { Button, Checkbox, Form, Input, InputNumber, Message, Modal, Popconfirm, Radio, Tag } from "@arco-design/web-react";
+import { Alert, Button, Checkbox, Form, Input, InputNumber, Message, Modal, Popconfirm, Radio, Tag } from "@arco-design/web-react";
 import { IconCheckCircle, IconDelete, IconDesktop, IconLeft, IconLink, IconLock, IconMoon, IconSave, IconStorage, IconSun } from "@arco-design/web-react/icon";
 import { useEffect, useState } from "react";
 import { clearOriginalImages, getErrorMessage, getOriginalStorageStats, saveSettings, testConnection } from "../../infrastructure/tauri";
@@ -39,6 +39,8 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
     baseUrl: settings.baseUrl, model: settings.model, timeoutSeconds: settings.timeoutSeconds,
     theme: settings.theme, autoSaveHistory: settings.autoSaveHistory,
     insecureHttpOrigin: settings.insecureHttpOrigin, apiKey: "", clearApiKey: false,
+    batchConcurrency: settings.batchConcurrency, storageQuotaBytes: settings.storageQuotaBytes,
+    progressiveDisclosure: settings.progressiveDisclosure,
   };
 
   const handleBack = onBack;
@@ -129,9 +131,12 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
             <Button icon={<IconLink />} loading={testing} onClick={() => void handleTest()}>测试连接</Button>
           </section>
           <section className="settings-section">
-            <header><IconSave /><div><h2>历史记录</h2><p>控制生成完成后是否自动写入本地历史</p></div></header>
-            <Form.Item field="autoSaveHistory" triggerPropName="checked" noStyle>
-              <Checkbox>自动保存生成结果到历史记录</Checkbox>
+            <header><IconSave /><div><h2>任务队列</h2><p>批处理默认串行；双并发会更快地产生模型费用</p></div></header>
+            <Form.Item label="模型并发数" field="batchConcurrency">
+              <Radio.Group type="button"><Radio value={1}>串行（推荐）</Radio><Radio value={2}>两个并发</Radio></Radio.Group>
+            </Form.Item>
+            <Form.Item field="progressiveDisclosure" triggerPropName="checked" noStyle>
+              <Checkbox>默认收起 EXIF、版本管理和诊断等高级信息</Checkbox>
             </Form.Item>
           </section>
           <section className="settings-section original-storage-section">
@@ -140,6 +145,10 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
               <div><span>已保留原图</span><strong>{statsLoading ? "--" : `${originalStats.count} 张`}</strong></div>
               <div><span>磁盘占用</span><strong>{statsLoading ? "--" : formatBytes(originalStats.totalBytes)}</strong></div>
             </div>
+            {!statsLoading && originalStats.totalBytes >= settings.storageQuotaBytes * 0.8 ? <Alert type="warning" content={`原图存储已使用配额的 ${Math.round(originalStats.totalBytes / settings.storageQuotaBytes * 100)}%，建议及时管理存储。`} /> : null}
+            <Form.Item label="原图软配额" field="storageQuotaBytes">
+              <Radio.Group type="button"><Radio value={5 * 1024 ** 3}>5 GB</Radio><Radio value={10 * 1024 ** 3}>10 GB</Radio><Radio value={20 * 1024 ** 3}>20 GB</Radio></Radio.Group>
+            </Form.Item>
             <Popconfirm
               title="清理全部原图？"
               content="此操作不可撤销，分析结果、提示词和缩略图会保留。"

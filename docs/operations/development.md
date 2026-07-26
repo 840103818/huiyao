@@ -24,12 +24,20 @@ Vite 固定使用 `127.0.0.1:1420`。配置只来自 `vite.config.ts`，不要�
 
 ## 开发流程
 
-1. 检查 `git status`，记录并保留已有未提交修改。
+1. 检查 `git status`，记录并保留已有未提交修改；从当前稳定基线建立独立功能分支。
 2. 阅读对应产品、设计和工程文档。
 3. 存在 `.codegraph/` 时运行 `codegraph explore "问题或符号"`。
 4. 按功能目录修改代码并补充共置测试。
 5. 同步操作说明、技术说明；页面变更同步视觉基线。
 6. 运行 `npm run check`、`git diff --check` 和 `codegraph sync`。
+7. 不自动合并 `master`；向维护者提交分支名、测试结果和人工合并提示。
+
+## 工作区数据库调试
+
+- 数据库位于 Tauri 应用私有目录，文件名为 `workspace.sqlite3`。
+- 调试数据库不得读取或输出提示词正文、缩略图、EXIF 或用户文件名。
+- Schema 修改集中在 `infrastructure/persistence/workspace.rs`，必须保持幂等并增加旧数据库测试。
+- 应用启动会把活动任务改为暂停。测试队列恢复时必须由用户动作继续。
 
 ## Mock 与针对性测试
 

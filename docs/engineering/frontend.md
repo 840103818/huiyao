@@ -1,5 +1,11 @@
 # 前端架构
 
+## 项目工作区
+
+`features/projects/` 管理项目任务栏、概览、批量导入和受控队列。队列并发固定为 1 或 2，单项异常由调度器隔离；只有选中任务把 SSE 增量送入完整结果组件。任务、项目和预设只能通过 `infrastructure/tauri/workspace.ts` 访问 Rust，不写入 `localStorage`。
+
+桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。
+
 ## 模块职责
 
 - `app/`：应用初始化、全局通知、页面切换、顶层工作台状态和 Shell。
@@ -8,6 +14,7 @@
 - `features/analysis/`：摄影测定、EXIF 展示和动态结果分隔。
 - `features/prompts/`：提示词阅读、编辑副本、优化、比较和导出入口。
 - `features/history/`：历史搜索、恢复和右键操作。
+- `features/projects/`：项目、任务队列、预设、筛选、废纸篓和批量操作。
 - `features/settings/`、`features/diagnostics/`：懒加载的二级页面。
 - `infrastructure/tauri/`：按设置、生成、历史、原图、导出和诊断拆分 IPC。
 - `shared/contracts/`：跨功能数据契约，不包含组件状态。

@@ -13,6 +13,11 @@ export interface PublicSettings {
   autoSaveHistory: boolean;
   insecureHttpOrigin?: string;
   workspace: WorkspacePreferences;
+  lastProjectId?: string;
+  lastTaskId?: string;
+  batchConcurrency: 1 | 2;
+  storageQuotaBytes: number;
+  progressiveDisclosure: boolean;
 }
 
 export interface WorkspacePreferences {
@@ -31,6 +36,9 @@ export interface SettingsInput {
   insecureHttpOrigin?: string;
   apiKey?: string;
   clearApiKey?: boolean;
+  batchConcurrency?: 1 | 2;
+  storageQuotaBytes?: number;
+  progressiveDisclosure?: boolean;
 }
 
 export interface Analysis {
@@ -206,4 +214,98 @@ export interface RuntimeLogEntry {
   event: string;
   message: string;
   details: Record<string, unknown>;
+}
+
+export type TaskStatus = "ready" | "queued" | "preparing" | "running" | "completed" | "failed" | "paused" | "cancelled" | "blocked";
+export type TaskFilter = "all" | "queued" | "completed" | "failed" | "favorite" | "originalRetained";
+
+export interface Project {
+  id: string;
+  title: string;
+  taskCount: number;
+  completedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReversePresetSnapshot {
+  requirements: string;
+  outputLanguage: OutputLanguage;
+  detailLevel: DetailLevel;
+  autoOptimizeTarget?: PromptOptimizationTarget;
+  autoOptimizeRequirements: string;
+}
+
+export interface ReversePreset {
+  id: string;
+  title: string;
+  builtIn: boolean;
+  snapshot: ReversePresetSnapshot;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  projectId: string;
+  title: string;
+  fileName: string;
+  thumbnail?: string;
+  imageInfo?: ImageInfo;
+  originalImage?: OriginalImageInfo;
+  captureMetadata?: CaptureMetadata;
+  status: TaskStatus;
+  favorite: boolean;
+  tags: string[];
+  presetSnapshot?: ReversePresetSnapshot;
+  result?: ReverseResult;
+  errorCode?: string;
+  errorMessage?: string;
+  parentTaskId?: string;
+  queuePosition: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectTaskPage {
+  items: ProjectTask[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface ImportProjectTaskInput {
+  projectId: string;
+  title: string;
+  fileName: string;
+  thumbnail: string;
+  imageInfo: ImageInfo;
+  originalStage: OriginalImageStage;
+  presetSnapshot: ReversePresetSnapshot;
+}
+
+export interface BatchProgress {
+  total: number;
+  ready: number;
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+  paused: number;
+}
+
+export interface TrashEntry {
+  id: string;
+  kind: "project" | "task";
+  title: string;
+  deletedAt: string;
+  purgeAt: string;
+}
+
+export interface BatchExportRequest {
+  taskIds: string[];
+  markdown: boolean;
+  json: boolean;
+  text: boolean;
+  includeOriginals: boolean;
 }

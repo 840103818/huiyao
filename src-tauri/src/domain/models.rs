@@ -13,6 +13,16 @@ pub struct SettingsFile {
     pub insecure_http_origin: Option<String>,
     #[serde(default)]
     pub workspace: WorkspacePreferences,
+    #[serde(default)]
+    pub last_project_id: Option<String>,
+    #[serde(default)]
+    pub last_task_id: Option<String>,
+    #[serde(default = "default_batch_concurrency")]
+    pub batch_concurrency: u8,
+    #[serde(default = "default_storage_quota_bytes")]
+    pub storage_quota_bytes: u64,
+    #[serde(default = "default_true")]
+    pub progressive_disclosure: bool,
 }
 
 impl Default for SettingsFile {
@@ -25,6 +35,11 @@ impl Default for SettingsFile {
             auto_save_history: true,
             insecure_http_origin: None,
             workspace: WorkspacePreferences::default(),
+            last_project_id: None,
+            last_task_id: None,
+            batch_concurrency: default_batch_concurrency(),
+            storage_quota_bytes: default_storage_quota_bytes(),
+            progressive_disclosure: true,
         }
     }
 }
@@ -48,6 +63,11 @@ pub struct PublicSettings {
     pub auto_save_history: bool,
     pub insecure_http_origin: Option<String>,
     pub workspace: WorkspacePreferences,
+    pub last_project_id: Option<String>,
+    pub last_task_id: Option<String>,
+    pub batch_concurrency: u8,
+    pub storage_quota_bytes: u64,
+    pub progressive_disclosure: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +85,12 @@ pub struct SettingsInput {
     pub api_key: Option<String>,
     #[serde(default)]
     pub clear_api_key: bool,
+    #[serde(default)]
+    pub batch_concurrency: Option<u8>,
+    #[serde(default)]
+    pub storage_quota_bytes: Option<u64>,
+    #[serde(default)]
+    pub progressive_disclosure: Option<bool>,
 }
 
 impl SettingsFile {
@@ -75,7 +101,25 @@ impl SettingsFile {
         self.theme = value.theme;
         self.auto_save_history = value.auto_save_history;
         self.insecure_http_origin = value.insecure_http_origin.clone();
+        if let Some(concurrency) = value.batch_concurrency {
+            self.batch_concurrency = concurrency.clamp(1, 2);
+        }
+        if let Some(quota) = value.storage_quota_bytes {
+            self.storage_quota_bytes = quota.clamp(1024 * 1024 * 1024, 100 * 1024 * 1024 * 1024);
+        }
+        if let Some(progressive) = value.progressive_disclosure {
+            self.progressive_disclosure = progressive;
+        }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceSessionInput {
+    #[serde(default)]
+    pub last_project_id: Option<String>,
+    #[serde(default)]
+    pub last_task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -389,6 +433,203 @@ pub struct OriginalStorageStats {
     pub total_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskStatus {
+    Ready,
+    Queued,
+    Preparing,
+    Running,
+    Completed,
+    Failed,
+    Paused,
+    Cancelled,
+    Blocked,
+}
+
+impl TaskStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Queued => "queued",
+            Self::Preparing => "preparing",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Paused => "paused",
+            Self::Cancelled => "cancelled",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Project {
+    pub id: String,
+    pub title: String,
+    pub task_count: u64,
+    pub completed_count: u64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTask {
+    pub id: String,
+    pub project_id: String,
+    pub title: String,
+    pub file_name: String,
+    #[serde(default)]
+    pub thumbnail: Option<String>,
+    #[serde(default)]
+    pub image_info: Option<ImageInfo>,
+    #[serde(default)]
+    pub original_image: Option<OriginalImageInfo>,
+    #[serde(default)]
+    pub capture_metadata: Option<CaptureMetadata>,
+    pub status: TaskStatus,
+    pub favorite: bool,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub preset_snapshot: Option<ReversePresetSnapshot>,
+    #[serde(default)]
+    pub result: Option<ReverseResult>,
+    #[serde(default)]
+    pub error_code: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+    #[serde(default)]
+    pub parent_task_id: Option<String>,
+    pub queue_position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTaskPage {
+    pub items: Vec<ProjectTask>,
+    pub total: u64,
+    pub offset: u64,
+    pub limit: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskFilter {
+    #[default]
+    All,
+    Queued,
+    Completed,
+    Failed,
+    Favorite,
+    OriginalRetained,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReversePresetSnapshot {
+    #[serde(default)]
+    pub requirements: String,
+    #[serde(default = "default_output_language")]
+    pub output_language: OutputLanguage,
+    #[serde(default = "default_detail_level")]
+    pub detail_level: DetailLevel,
+    #[serde(default)]
+    pub auto_optimize_target: Option<PromptOptimizationTarget>,
+    #[serde(default)]
+    pub auto_optimize_requirements: String,
+}
+
+impl Default for ReversePresetSnapshot {
+    fn default() -> Self {
+        Self {
+            requirements: String::new(),
+            output_language: default_output_language(),
+            detail_level: default_detail_level(),
+            auto_optimize_target: None,
+            auto_optimize_requirements: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReversePreset {
+    pub id: String,
+    pub title: String,
+    pub built_in: bool,
+    pub snapshot: ReversePresetSnapshot,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportProjectTaskInput {
+    pub project_id: String,
+    pub title: String,
+    pub file_name: String,
+    pub thumbnail: String,
+    pub image_info: ImageInfo,
+    pub original_stage: OriginalImageStage,
+    pub preset_snapshot: ReversePresetSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskResultInput {
+    pub task_id: String,
+    pub result: ReverseResult,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskFailureInput {
+    pub task_id: String,
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchProgress {
+    pub total: u64,
+    pub ready: u64,
+    pub queued: u64,
+    pub running: u64,
+    pub completed: u64,
+    pub failed: u64,
+    pub paused: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashEntry {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub deleted_at: String,
+    pub purge_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchExportRequest {
+    pub task_ids: Vec<String>,
+    #[serde(default = "default_true")]
+    pub markdown: bool,
+    #[serde(default)]
+    pub json: bool,
+    #[serde(default)]
+    pub text: bool,
+    #[serde(default)]
+    pub include_originals: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ReverseStreamEvent {
@@ -468,4 +709,12 @@ fn default_detail_level() -> DetailLevel {
 
 fn default_fit_mode() -> FitMode {
     FitMode::Contain
+}
+
+fn default_batch_concurrency() -> u8 {
+    1
+}
+
+fn default_storage_quota_bytes() -> u64 {
+    10 * 1024 * 1024 * 1024
 }

@@ -5,6 +5,7 @@
 @import "../features/image-input/image-input.css";
 @import "../features/analysis/analysis.css";
 @import "../features/prompts/prompts.css";
+@import "../features/projects/projects.css";
 @import "./statusbar.css";
 @import "./operations.css";
 @import "../features/image-input/viewer.css";
