@@ -1,0 +1,33 @@
+* { box-sizing: border-box; letter-spacing: 0; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body {
+  min-width: 1120px;
+  min-height: 720px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  --primary-1: 246, 243, 255;
+  --primary-2: 235, 229, 255;
+  --primary-3: 215, 204, 255;
+  --primary-4: 181, 161, 248;
+  --primary-5: 129, 111, 236;
+  --primary-6: 109, 92, 231;
+  --primary-7: 88, 71, 207;
+  --primary-8: 79, 52, 191;
+  --primary-9: 61, 39, 154;
+  --primary-10: 44, 28, 111;
+  --success-6: 118, 184, 42;
+}
+body[arco-theme="dark"] {
+  --primary-1: 48, 37, 84;
+  --primary-2: 62, 47, 109;
+  --primary-3: 79, 60, 137;
+  --primary-4: 104, 81, 174;
+  --primary-5: 137, 113, 219;
+  --primary-6: 161, 140, 245;
+  --primary-7: 181, 161, 248;
+  --primary-8: 196, 180, 249;
+  --primary-9: 220, 210, 252;
+  --primary-10: 242, 238, 255;
+  --success-6: 159, 218, 53;
+}

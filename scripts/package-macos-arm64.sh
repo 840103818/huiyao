@@ -60,7 +60,7 @@ VERSION="$(node -p "require('./package.json').version")"
 BUILD_ROOT="$TARGET_DIR/$TARGET_TRIPLE/release/bundle"
 BUILD_APP="$BUILD_ROOT/macos/绘钥.app"
 BUILD_DMG="$BUILD_ROOT/dmg/绘钥_${VERSION}_aarch64.dmg"
-RELEASE_DIR="$ROOT_DIR/release"
+RELEASE_DIR="$ROOT_DIR/artifacts/release"
 RELEASE_APP="$RELEASE_DIR/绘钥.app"
 RELEASE_DMG="$RELEASE_DIR/绘钥_${VERSION}_aarch64.dmg"
 
@@ -78,7 +78,7 @@ CARGO_TARGET_DIR="$TARGET_DIR" npm run build:macos:arm64
 [[ -d "$BUILD_APP" ]] || fail "未找到构建产物：$BUILD_APP"
 [[ -f "$BUILD_DMG" ]] || fail "未找到构建产物：$BUILD_DMG"
 
-printf '\n==> 复制产物到 release\n'
+printf '\n==> 复制产物到 artifacts/release\n'
 mkdir -p "$RELEASE_DIR"
 rm -rf "$RELEASE_APP"
 rm -f "$RELEASE_DMG"

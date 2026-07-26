@@ -1,0 +1,7 @@
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.arco-tabs-header-title { font-weight: 580; }
+.arco-tag { font-weight: 550; }
+.settings-section:last-of-type { border-bottom: 0; }
+.settings-section:hover { background: color-mix(in srgb, var(--surface-2) 34%, transparent); }
+.log-table .arco-table-tr:hover .arco-table-td { background: var(--brand-soft); }
+

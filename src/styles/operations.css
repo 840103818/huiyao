@@ -1,0 +1,40 @@
+.settings-view, .logs-view { min-height: 0; overflow: auto; background: var(--bg); }
+.view-loading { display: grid; min-height: 0; place-items: center; background: var(--bg); }
+.settings-container, .logs-container { width: min(960px, calc(100% - 48px)); margin: 0 auto; padding: 24px 0 30px; }
+.page-title-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 18px; }
+.page-title-row span { color: var(--faint); font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.page-title-row h1 { margin: 2px 0 0; font-size: 20px; }
+.settings-container .arco-form { display: grid; gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--panel-shadow); }
+.settings-section { padding: 20px 22px; border-bottom: 1px solid var(--border); background: transparent; }
+.settings-section > header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
+.settings-section > header > svg { margin-top: 2px; color: var(--brand); font-size: 18px; }
+.settings-section h2 { margin: 0; font-size: 14px; }.settings-section p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+.settings-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.settings-fields .api-key-item { grid-column: 1 / -1; }
+.settings-fields .arco-input-number { width: 100%; }
+.storage-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.storage-metrics > div { display: flex; height: 52px; align-items: center; justify-content: space-between; padding: 0 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.storage-metrics span { color: var(--muted); font-size: 10px; }
+.storage-metrics strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.theme-options { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.theme-options .arco-radio-button { display: flex; height: 48px; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--border) !important; border-radius: 6px !important; background: var(--surface-2); }
+.theme-options .arco-radio-checked { border-color: var(--brand) !important; background: var(--brand-soft); }
+.settings-footer { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px; color: var(--muted); border-top: 1px solid var(--border); background: var(--chrome); backdrop-filter: blur(16px); font-size: 10px; }
+
+.logs-container { width: min(1180px, calc(100% - 40px)); height: 100%; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); }
+.logs-title { margin-bottom: 12px; }
+.log-summary { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); box-shadow: var(--panel-shadow); }
+.log-summary div { display: flex; height: 52px; align-items: center; padding: 0 16px; }
+.log-summary div + div { border-left: 1px solid var(--border); }
+.log-summary span { color: var(--muted); }.log-summary strong { margin-left: auto; font: 650 19px ui-monospace, SFMono-Regular, Menlo, monospace; }.log-summary .has-error strong { color: var(--danger); }
+.log-toolbar { display: grid; grid-template-columns: minmax(200px, 1fr) 118px 108px auto auto auto auto; gap: 7px; margin-bottom: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.log-table { min-height: 0; overflow: hidden; border-radius: 7px; box-shadow: var(--panel-shadow); }
+.log-table .arco-spin, .log-table .arco-spin-children, .log-table .arco-table-container { height: 100%; }
+.log-table code { color: var(--brand-strong); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.log-table time { white-space: nowrap; }
+.log-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 18px; margin: 0; padding: 6px 24px; }
+.log-details div { min-width: 0; }.log-details dt { color: var(--faint); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }.log-details dd { margin: 3px 0 0; overflow-wrap: anywhere; color: var(--text); font-size: 11px; }
+.live-refresh { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--muted); font-size: 11px; }
+.log-detail-wrap { padding: 6px 0 10px; }
+.log-detail-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 2px 24px 0; }
+

@@ -8,5 +8,6 @@ cd "$ROOT_DIR"
 
 npm test
 npm run build -- --outDir "$FRONTEND_DIST" --emptyOutDir
+npm run verify:frontend-dist -- "$FRONTEND_DIST"
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo test --manifest-path src-tauri/Cargo.toml

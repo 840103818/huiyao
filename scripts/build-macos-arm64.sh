@@ -9,8 +9,27 @@ trap 'rm -rf "$FRONTEND_DIST"' EXIT
 
 cd "$ROOT_DIR"
 
+DEFAULT_FEATURES="$({
+  cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1
+} | node -e '
+  let input = "";
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => { input += chunk; });
+  process.stdin.on("end", () => {
+    const metadata = JSON.parse(input);
+    const app = metadata.packages.find((item) => item.name === "huiyao");
+    process.stdout.write(JSON.stringify(app?.features?.default ?? []));
+  });
+')"
+
+if [[ "$DEFAULT_FEATURES" != *'"custom-protocol"'* ]]; then
+  printf '错误：生产构建必须默认启用 custom-protocol，否则安装包会白屏。\n' >&2
+  exit 1
+fi
+
 printf 'Building frontend in %s\n' "$FRONTEND_DIST"
 npm run build -- --outDir "$FRONTEND_DIST" --emptyOutDir
+npm run verify:frontend-dist -- "$FRONTEND_DIST"
 
 PATH="${RUST_TOOLCHAIN_BIN}:${PATH}" \
 CARGO_TARGET_DIR="$TARGET_DIR" \

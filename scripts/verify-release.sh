@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "require('${ROOT_DIR}/package.json').version")"
-APP_PATH="${1:-${ROOT_DIR}/release/绘钥.app}"
-DMG_PATH="${2:-${ROOT_DIR}/release/绘钥_${VERSION}_aarch64.dmg}"
+APP_PATH="${1:-${ROOT_DIR}/artifacts/release/绘钥.app}"
+DMG_PATH="${2:-${ROOT_DIR}/artifacts/release/绘钥_${VERSION}_aarch64.dmg}"
 
 test -d "$APP_PATH"
 test -f "$DMG_PATH"

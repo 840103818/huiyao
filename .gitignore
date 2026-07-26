@@ -16,7 +16,8 @@ src-tauri/gen/
 *.pem
 *.key
 
-# Release and visual-review artifacts
+# Release, visual-review, and test artifacts
+artifacts/
 release/
 output/
 screenshots/
