@@ -26,3 +26,4 @@
 - `cargo tauri dev` 原生冒烟通过，应用进程稳定启动且无启动错误。
 - Apple Silicon 生产包构建与校验通过：版本 `1.0.0`、Bundle ID `com.huiyao.studio`、arm64、应用图标、ad-hoc 签名和 DMG 校验均正常。
 - 交付分支为 `feature/1.0.0-digital-darkroom`，不自动合并 `master`，由用户人工检查后合并。
+- 用户明确授权后已将功能分支与 `origin/master` 合并；远端单独升级 `react-dom` 造成 React 18/19 冲突，已恢复为 React 18 对齐版本。按新锁文件执行 `npm ci`、前端 63 项和 Rust 56 项测试均通过。
