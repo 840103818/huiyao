@@ -153,6 +153,7 @@ pub(crate) fn run() {
             import_project_task,
             update_project_task_status,
             complete_project_task,
+            update_project_task_result,
             fail_project_task,
             set_project_task_favorite,
             set_project_task_tags,

@@ -64,9 +64,10 @@ import {
   setProjectTaskFavorite,
   setProjectTaskTags,
   updateProjectTaskStatus,
+  updateProjectTaskResult,
 } from "../infrastructure/tauri";
-import { prepareImage } from "../features/image-input/image";
-import { parseStreamingResult } from "../features/generation/stream";
+import { prepareImage, revokePreparedImagePreview } from "../features/image-input/image";
+import { createStreamUpdateScheduler, parseStreamingResult } from "../features/generation/stream";
 import type {
   CommandFailure,
   DetailLevel,
@@ -166,8 +167,15 @@ export default function App() {
   const [firstTokenMs, setFirstTokenMs] = useState<number>();
   const [receivedCharacters, setReceivedCharacters] = useState(0);
   const streamBufferRef = useRef("");
-  const streamFrameRef = useRef(0);
   const receivedCharactersRef = useRef(0);
+  const streamSchedulerRef = useRef<ReturnType<typeof createStreamUpdateScheduler> | null>(null);
+  if (!streamSchedulerRef.current) {
+    streamSchedulerRef.current = createStreamUpdateScheduler(() => {
+      setReceivedCharacters(receivedCharactersRef.current);
+      const partial = parseStreamingResult(streamBufferRef.current);
+      if (partial) setResult(partial);
+    });
+  }
   const themeOverrideRef = useRef<ThemeMode | undefined>(undefined);
   const requestStartedAtRef = useRef(0);
   const firstTokenRecordedRef = useRef(false);
@@ -298,7 +306,7 @@ export default function App() {
   useTheme(settings.theme);
 
   useEffect(() => () => {
-    if (image?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(image.previewUrl);
+    revokePreparedImagePreview(image);
   }, [image]);
 
   useEffect(() => {
@@ -325,13 +333,14 @@ export default function App() {
     receivedCharactersRef.current = 0;
     firstTokenRecordedRef.current = false;
     streamBufferRef.current = "";
-    window.cancelAnimationFrame(streamFrameRef.current);
-    streamFrameRef.current = 0;
+    streamSchedulerRef.current?.reset();
   }, []);
 
   const handleImageFile = useCallback(async (file: File) => {
     const task = ++imageTaskRef.current;
     let originalStage: PreparedImage["originalStage"];
+    let prepared: PreparedImage | undefined;
+    let previewTransferred = false;
     let stageFailure: string | undefined;
     try {
       if (isDesktopApp()) {
@@ -345,12 +354,11 @@ export default function App() {
           stageFailure = getErrorMessage(error);
         }
       }
-      const prepared = await prepareImage(file, originalStage ? {
+      prepared = await prepareImage(file, originalStage ? {
         width: originalStage.sourceWidth,
         height: originalStage.sourceHeight,
       } : undefined);
       if (task !== imageTaskRef.current) {
-        if (prepared.previewUrl.startsWith("blob:")) URL.revokeObjectURL(prepared.previewUrl);
         return;
       }
       let staged = { ...prepared, originalStage, captureMetadata: originalStage?.captureMetadata };
@@ -379,6 +387,7 @@ export default function App() {
         await discardOriginalStage(image.originalStage.stagingId).catch(() => undefined);
       }
       setImage(staged);
+      previewTransferred = true;
       setDisplayImage(staged.previewUrl);
       setDisplayImageInfo(toImageInfo(staged));
       setActiveHistoryId(undefined);
@@ -389,6 +398,8 @@ export default function App() {
       if (originalStage) await discardOriginalStage(originalStage.stagingId).catch(() => undefined);
       if (task !== imageTaskRef.current) return;
       showNotice(getErrorMessage(error), "error");
+    } finally {
+      if (!previewTransferred) revokePreparedImagePreview(prepared);
     }
   }, [activePresetId, activeProjectId, detailLevel, image?.originalStage, outputLanguage, presets, reloadProjectTasks, reloadProjects, requirements, resetOutput, showNotice]);
 
@@ -407,15 +418,17 @@ export default function App() {
         const file = files[index];
         setBatchImportLabel(`${index + 1}/${files.length} · ${file.name}`);
         let stage;
+        let prepared: PreparedImage | undefined;
         try {
           stage = await stageOriginalImage(file);
-          const prepared = await prepareImage(file, { width: stage.sourceWidth, height: stage.sourceHeight });
+          prepared = await prepareImage(file, { width: stage.sourceWidth, height: stage.sourceHeight });
           const task = await importProjectTask({ projectId: activeProjectId, title: fileTitle(file.name), fileName: file.name, thumbnail: prepared.thumbnail, imageInfo: toImageInfo(prepared), originalStage: stage, presetSnapshot: preset });
-          if (prepared.previewUrl.startsWith("blob:")) URL.revokeObjectURL(prepared.previewUrl);
           firstTask ??= task;
         } catch (error) {
           if (stage) await discardOriginalStage(stage.stagingId).catch(() => undefined);
           showNotice(`${file.name}：${getErrorMessage(error)}`, "error");
+        } finally {
+          revokePreparedImagePreview(prepared);
         }
       }
       await Promise.all([reloadProjects(activeProjectId), reloadProjectTasks(activeProjectId)]);
@@ -457,14 +470,7 @@ export default function App() {
     setGenerationState("streaming");
     streamBufferRef.current += event.content;
     receivedCharactersRef.current += Array.from(event.content).length;
-    if (!streamFrameRef.current) {
-      streamFrameRef.current = window.requestAnimationFrame(() => {
-        streamFrameRef.current = 0;
-        setReceivedCharacters(receivedCharactersRef.current);
-        const partial = parseStreamingResult(streamBufferRef.current);
-        if (partial) setResult(partial);
-      });
-    }
+    streamSchedulerRef.current?.schedule();
   }, []);
 
   const updateHistory = useCallback((mutate: (items: HistoryItem[]) => HistoryItem[], originalCommit?: OriginalImageCommit) => {
@@ -514,6 +520,7 @@ export default function App() {
     receivedCharactersRef.current = 0;
     firstTokenRecordedRef.current = false;
     streamBufferRef.current = "";
+    streamSchedulerRef.current?.reset();
     cancelRequestedRef.current = false;
     requestStartedAtRef.current = Date.now();
     try {
@@ -528,13 +535,13 @@ export default function App() {
         outputLanguage,
         detailLevel,
       }, handleStreamEvent);
-      window.cancelAnimationFrame(streamFrameRef.current);
-      streamFrameRef.current = 0;
       if (cancelRequestedRef.current) {
+        streamSchedulerRef.current?.flush();
         setGenerationState("cancelled");
         showNotice("已停止生成");
         return;
       }
+      streamSchedulerRef.current?.cancel();
       setResult(next);
       setIsFinalResult(true);
       setGenerationState("complete");
@@ -587,10 +594,12 @@ export default function App() {
       }
     } catch (error) {
       if (getErrorCode(error) === "cancelled") {
+        streamSchedulerRef.current?.flush();
         setGenerationState("cancelled");
         if (activeTaskId) await updateProjectTaskStatus([activeTaskId], "paused").catch(() => undefined);
         showNotice("已停止生成");
       } else {
+        streamSchedulerRef.current?.flush();
         setGenerationState("idle");
         const failure = getCommandFailure(error);
         setGenerationError(failure);
@@ -631,16 +640,19 @@ export default function App() {
     await updateProjectTaskStatus([taskItem.id], "queued");
     await updateProjectTaskStatus([taskItem.id], "preparing");
     let interaction: string | undefined;
+    let prepared: PreparedImage | undefined;
+    let previewTransferred = false;
     try {
       if (!taskItem.originalImage) throw { code: "original_missing", message: "原图不可用，无法继续反推" };
       const bytes = await loadWorkspaceOriginalImage(taskItem.id);
       const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       const file = new File([buffer], taskItem.originalImage.fileName, { type: taskItem.originalImage.mimeType });
-      const prepared = await prepareImage(file, taskItem.imageInfo ? { width: taskItem.imageInfo.width, height: taskItem.imageInfo.height } : undefined);
+      prepared = await prepareImage(file, taskItem.imageInfo ? { width: taskItem.imageInfo.width, height: taskItem.imageInfo.height } : undefined);
       await updateProjectTaskStatus([taskItem.id], "running");
       const isSelected = forceSelected || taskItem.id === activeTaskId;
       if (isSelected) {
         setImage({ ...prepared, captureMetadata: taskItem.captureMetadata });
+        previewTransferred = true;
         setDisplayImage(prepared.previewUrl);
         setDisplayImageInfo(toImageInfo(prepared));
         setResult(null);
@@ -667,13 +679,14 @@ export default function App() {
       }
       await completeProjectTask(taskItem.id, next);
       if (isSelected) { setResult(next); setIsFinalResult(true); setGenerationState("complete"); setElapsedMs(next.metadata.elapsedMs); }
-      if (prepared.previewUrl.startsWith("blob:") && !isSelected) URL.revokeObjectURL(prepared.previewUrl);
     } catch (error) {
       if (interaction) queueInteractionIdsRef.current.delete(interaction);
       const failure = getCommandFailure(error);
       if (queueStopRef.current || failure.code === "cancelled") await updateProjectTaskStatus([taskItem.id], "paused");
       else await failProjectTask(taskItem.id, failure.code, failure.message);
       if (taskItem.id === activeTaskId) { setGenerationState(failure.code === "cancelled" ? "cancelled" : "idle"); setGenerationError(failure); }
+    } finally {
+      if (!previewTransferred) revokePreparedImagePreview(prepared);
     }
   }, [activeTaskId, handleStreamEvent]);
 
@@ -787,7 +800,13 @@ export default function App() {
   const selectProjectTask = async (taskItem: ProjectTask) => {
     const selectionTask = ++imageTaskRef.current;
     if (image?.originalStage) void discardOriginalStage(image.originalStage.stagingId);
-    const latest = await getProjectTask(taskItem.id).catch(() => taskItem);
+    let latest: ProjectTask;
+    try {
+      latest = await getProjectTask(taskItem.id);
+    } catch (error) {
+      showNotice(`任务详情加载失败：${getErrorMessage(error)}`, "error");
+      return;
+    }
     setSettings((current) => ({ ...current, lastProjectId: latest.projectId, lastTaskId: latest.id }));
     setActiveTaskId(latest.id);
     setActiveHistoryId(undefined);
@@ -937,7 +956,7 @@ export default function App() {
 
   const updatePromptResult = useCallback(async (next: ReverseResult) => {
     if (activeTaskId) {
-      await completeProjectTask(activeTaskId, next);
+      await updateProjectTaskResult(activeTaskId, next);
       if (activeProjectId) await reloadProjectTasks(activeProjectId);
     } else if (activeHistoryId) {
       await updateHistory((current) => current.map((item) => item.id === activeHistoryId ? { ...item, result: next } : item));
@@ -983,7 +1002,7 @@ export default function App() {
 
   useEffect(() => () => window.clearTimeout(preferencesTimerRef.current), []);
 
-  useEffect(() => () => window.cancelAnimationFrame(streamFrameRef.current), []);
+  useEffect(() => () => streamSchedulerRef.current?.reset(), []);
 
   const navigate = useCallback((next: AppView) => {
     if (view === "settings" && next !== "settings" && settingsDirty) {

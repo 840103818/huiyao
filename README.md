@@ -33,6 +33,7 @@ npm run dev:desktop
 | `npm test` | 运行前端测试 |
 | `npm run build` | 类型检查并构建前端 |
 | `npm run check` | 运行前端、Rust 和生产资源完整检查 |
+| `npm run verify:lockfile` | 检查 npm 锁文件下载源和完整性摘要 |
 | `npm run package:macos` | 完整检查并构建 Apple Silicon 安装包 |
 | `npm run package:macos -- --fast` | 跳过完整检查并快速打包 |
 | `npm run verify:release` | 验证 `artifacts/release/` 中的 App 和 DMG |

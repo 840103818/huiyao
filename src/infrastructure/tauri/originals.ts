@@ -2,8 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import type { OriginalImageStage, OriginalStorageStats } from "../../shared/contracts";
 import { desktopOnlyError, isDesktopApp } from "./core";
 
+const SUPPORTED_ORIGINAL_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_ORIGINAL_FILE_BYTES = 20 * 1024 * 1024;
+
 export async function stageOriginalImage(file: File): Promise<OriginalImageStage> {
   if (!isDesktopApp()) throw desktopOnlyError("原图保留仅在 macOS 桌面应用中可用");
+  validateOriginalImageUpload(file);
   const metadata = new TextEncoder().encode(JSON.stringify({ fileName: file.name, mimeType: file.type }));
   const bytes = new Uint8Array(await file.arrayBuffer());
   const body = new Uint8Array(8 + metadata.length + bytes.length);
@@ -12,6 +16,15 @@ export async function stageOriginalImage(file: File): Promise<OriginalImageStage
   body.set(metadata, 8);
   body.set(bytes, 8 + metadata.length);
   return invoke<OriginalImageStage>("stage_original_image", body);
+}
+
+export function validateOriginalImageUpload(file: Pick<File, "size" | "type">): void {
+  if (!SUPPORTED_ORIGINAL_TYPES.has(file.type)) {
+    throw new Error("仅支持 PNG、JPEG 和 WebP 图片");
+  }
+  if (file.size <= 0 || file.size > MAX_ORIGINAL_FILE_BYTES) {
+    throw new Error("图片不能为空且不能超过 20 MB");
+  }
 }
 
 export async function discardOriginalStage(stagingId: string): Promise<void> {

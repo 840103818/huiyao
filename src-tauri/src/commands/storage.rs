@@ -61,21 +61,35 @@ fn save_history(
     };
     match store::write_history(&state.history_path(), &items) {
         Ok(()) => {
-            let referenced = items
+            let mut referenced = items
                 .iter()
                 .filter(|item| item.original_image.is_some())
                 .map(|item| item.id.clone())
                 .collect::<Vec<_>>();
-            if let Err(error) =
-                original_image::remove_unreferenced(&state.originals_path(), &referenced)
-            {
-                state.log(
+            match workspace_store::original_asset_ids(&state.workspace_path()) {
+                Ok(mut workspace_references) => {
+                    referenced.append(&mut workspace_references);
+                    referenced.sort_unstable();
+                    referenced.dedup();
+                    if let Err(error) =
+                        original_image::remove_unreferenced(&state.originals_path(), &referenced)
+                    {
+                        state.log(
+                            LogLevel::Warn,
+                            "storage",
+                            "original_cleanup_failed",
+                            "未引用原图清理失败",
+                            json!({ "errorCode": error.code }),
+                        );
+                    }
+                }
+                Err(error) => state.log(
                     LogLevel::Warn,
                     "storage",
-                    "original_cleanup_failed",
-                    "未引用原图清理失败",
+                    "original_cleanup_skipped",
+                    "工作区原图引用读取失败，已跳过清理",
                     json!({ "errorCode": error.code }),
-                );
+                ),
             }
             state.log(
                 LogLevel::Info,

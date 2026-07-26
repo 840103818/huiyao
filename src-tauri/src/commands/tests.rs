@@ -54,4 +54,24 @@ mod tests {
         assert!(!serialized.to_ascii_lowercase().contains("gps"));
         assert!(!serialized.to_ascii_lowercase().contains("serial"));
     }
+
+    #[test]
+    fn workspace_session_ids_are_bounded_and_path_safe() {
+        assert_eq!(
+            validate_session_id(Some("project-default".into()), "项目标识").unwrap(),
+            Some("project-default".into())
+        );
+        assert_eq!(
+            validate_session_id(Some("../settings.json".into()), "项目标识")
+                .unwrap_err()
+                .code,
+            "workspace_session_invalid"
+        );
+        assert_eq!(
+            validate_session_id(Some("x".repeat(129)), "任务标识")
+                .unwrap_err()
+                .code,
+            "workspace_session_invalid"
+        );
+    }
 }

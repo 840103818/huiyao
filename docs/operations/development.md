@@ -13,6 +13,8 @@ rustup target add aarch64-apple-darwin
 rustup component add rustfmt
 ```
 
+仓库级 `.npmrc` 固定使用 npm 官方源。`npm run verify:lockfile` 会拒绝锁文件中的第三方下载地址或缺少 `integrity` 的下载项；升级依赖后必须先执行该校验，不要提交由个人镜像生成的 `resolved` 地址。
+
 ## 启动
 
 ```bash
@@ -43,7 +45,7 @@ Vite 固定使用 `127.0.0.1:1420`。配置只来自 `vite.config.ts`，不要�
 
 ```bash
 npm test -- src/features/prompts/PromptPanel.test.tsx
-cargo test --manifest-path src-tauri/Cargo.toml api::tests -- --nocapture
+cargo test --locked --manifest-path src-tauri/Cargo.toml api::tests -- --nocapture
 ```
 
 HTTP 测试使用本地 Mock 服务，不接触真实 API Key。浏览器验证优先使用 `browser-skill`，测试数据不得包含用户图片或模型正文。

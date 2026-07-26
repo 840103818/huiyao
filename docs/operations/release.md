@@ -6,7 +6,7 @@
 
 ```bash
 npm run check
-npm audit --omit=dev --registry=https://registry.npmjs.org
+npm audit --registry=https://registry.npmjs.org
 cargo audit --file src-tauri/Cargo.lock
 git diff --check
 ```

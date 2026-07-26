@@ -1,5 +1,43 @@
-import { describe, expect, it } from "vitest";
-import { parseStreamingOptimization, parseStreamingResult } from "./stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createStreamUpdateScheduler, parseStreamingOptimization, parseStreamingResult } from "./stream";
+
+afterEach(() => vi.useRealTimers());
+
+describe("createStreamUpdateScheduler", () => {
+  it("coalesces updates and enforces the minimum parse interval", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const update = vi.fn();
+    const scheduler = createStreamUpdateScheduler(update, 80, () => Date.now());
+
+    scheduler.schedule();
+    scheduler.schedule();
+    vi.advanceTimersByTime(0);
+    expect(update).toHaveBeenCalledTimes(1);
+
+    scheduler.schedule();
+    scheduler.schedule();
+    vi.advanceTimersByTime(79);
+    expect(update).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("flushes the pending partial update when a stream is stopped", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const update = vi.fn();
+    const scheduler = createStreamUpdateScheduler(update, 80, () => Date.now());
+    scheduler.schedule();
+    vi.advanceTimersByTime(0);
+    scheduler.schedule();
+
+    scheduler.flush();
+    expect(update).toHaveBeenCalledTimes(2);
+    vi.runAllTimers();
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("parseStreamingResult", () => {
   it("extracts analysis and an unfinished prompt from partial JSON", () => {

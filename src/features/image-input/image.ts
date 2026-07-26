@@ -33,11 +33,13 @@ export async function prepareImage(
   try {
     const modelBlob = await renderBitmap(bitmap, MODEL_MAX_EDGE, file.type, 0.9);
     const thumbnailBlob = await renderBitmap(bitmap, THUMB_MAX_EDGE, "image/jpeg", 0.78);
+    const modelDataUrl = await blobToDataUrl(modelBlob);
+    const thumbnail = await blobToDataUrl(thumbnailBlob);
     return {
       name: file.name,
       previewUrl: URL.createObjectURL(modelBlob),
-      modelDataUrl: await blobToDataUrl(modelBlob),
-      thumbnail: await blobToDataUrl(thumbnailBlob),
+      modelDataUrl,
+      thumbnail,
       width: dimensions.width,
       height: dimensions.height,
       size: file.size,
@@ -47,6 +49,10 @@ export async function prepareImage(
   } finally {
     bitmap.close();
   }
+}
+
+export function revokePreparedImagePreview(image?: Pick<PreparedImage, "previewUrl"> | null): void {
+  if (image?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(image.previewUrl);
 }
 
 async function renderBitmap(

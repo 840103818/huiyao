@@ -81,6 +81,21 @@ mod tests {
     }
 
     #[test]
+    fn inspecting_stage_rebuilds_metadata_from_encrypted_bytes() {
+        let root = tempdir().unwrap();
+        let key = generate_key();
+        let staged = stage(root.path(), PNG, "mark.png", "image/png", &key).unwrap();
+
+        let inspected = inspect_stage(root.path(), &staged.staging_id, "trusted.png", &key).unwrap();
+
+        assert_eq!(inspected.info.file_name, "trusted.png");
+        assert_eq!(inspected.info.mime_type, "image/png");
+        assert_eq!(inspected.info.size, PNG.len() as u64);
+        assert_eq!(inspected.source_width, staged.source_width);
+        assert_eq!(inspected.source_height, staged.source_height);
+    }
+
+    #[test]
     fn images_without_exif_do_not_create_fake_capture_metadata() {
         assert!(extract_capture_metadata(PNG).is_none());
     }
