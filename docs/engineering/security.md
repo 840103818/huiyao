@@ -33,3 +33,14 @@
 ## 审计
 
 CI 使用官方 npm 源审计生产依赖，并执行 RustSec 审计。GitHub Actions 固定到提交 SHA，Dependabot 覆盖 npm、Cargo 和 Actions。
+
+### macOS 目标的 `glib` 告警
+
+`GHSA-wrw7-89jp-8q8g` 影响 `glib < 0.20.0` 的特定迭代器实现。该依赖由 Tauri 的 Linux GTK 运行时条件引入，会出现在 Cargo 跨平台锁文件中，但不进入绘钥的 `aarch64-apple-darwin` 产物。发布前用以下命令复核目标依赖图：
+
+```bash
+cargo tree --manifest-path src-tauri/Cargo.toml \
+  --target aarch64-apple-darwin -i glib
+```
+
+命令必须返回“未找到匹配包”，`npm run check` 也会执行同等断言；若未来支持 Linux，或 `glib` 进入 macOS 目标依赖图，必须重新打开该风险并升级相关运行时，不得沿用当前例外。
