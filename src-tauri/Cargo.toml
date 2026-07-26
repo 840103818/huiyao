@@ -24,7 +24,7 @@ keyring = { version = "3.6", features = ["apple-native"] }
 futures-util = "0.3"
 imagesize = "0.15"
 kamadak-exif = "0.6"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
