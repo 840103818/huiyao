@@ -19,6 +19,7 @@ export const getProjectTask = (taskId: string) => desktop<ProjectTask>("get_proj
 export const importProjectTask = (input: ImportProjectTaskInput) => desktop<ProjectTask>("import_project_task", { input });
 export const updateProjectTaskStatus = (taskIds: string[], status: TaskStatus) => desktop<number>("update_project_task_status", { taskIds, status });
 export const completeProjectTask = (taskId: string, result: ProjectTask["result"]) => desktop<void>("complete_project_task", { input: { taskId, result } });
+export const updateProjectTaskResult = (taskId: string, result: ProjectTask["result"]) => desktop<void>("update_project_task_result", { input: { taskId, result } });
 export const failProjectTask = (taskId: string, code: string, message: string) => desktop<void>("fail_project_task", { input: { taskId, code, message } });
 export const setProjectTaskFavorite = (taskId: string, favorite: boolean) => desktop<void>("set_project_task_favorite", { taskId, favorite });
 export const setProjectTaskTags = (taskId: string, tags: string[]) => desktop<void>("set_project_task_tags", { taskId, tags });

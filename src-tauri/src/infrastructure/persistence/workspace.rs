@@ -276,7 +276,7 @@ pub fn list_tasks(
             |row| row.get(0),
         )
         .map_err(db_error)?;
-    let sql = format!("SELECT t.id,t.project_id,t.title,t.file_name,t.thumbnail,t.image_info_json,t.original_image_json,t.capture_metadata_json,t.status,t.favorite,t.preset_snapshot_json,t.result_json,t.error_code,t.error_message,t.parent_task_id,t.queue_position,t.created_at,t.updated_at FROM tasks t WHERE {where_sql} ORDER BY t.queue_position ASC,t.created_at DESC LIMIT ?3 OFFSET ?4");
+    let sql = format!("SELECT t.id,t.project_id,t.title,t.file_name,t.thumbnail,t.image_info_json,t.original_image_json,t.capture_metadata_json,t.status,t.favorite,t.preset_snapshot_json,NULL,t.error_code,t.error_message,t.parent_task_id,t.queue_position,t.created_at,t.updated_at FROM tasks t WHERE {where_sql} ORDER BY t.queue_position ASC,t.created_at DESC LIMIT ?3 OFFSET ?4");
     let mut statement = connection.prepare(&sql).map_err(db_error)?;
     let rows = statement
         .query_map(params![project_id, pattern, limit, offset], task_from_row)
@@ -393,9 +393,39 @@ pub fn complete_task(
         "task_result_too_large",
         "任务结果超过 2 MiB 限制",
     )?;
-    let changed = open(path)?.execute("UPDATE tasks SET status='completed',result_json=?2,error_code=NULL,error_message=NULL,updated_at=?3 WHERE id=?1 AND deleted_at IS NULL", params![task_id,result_json,Utc::now().to_rfc3339()]).map_err(db_error)?;
+    let mut connection = open(path)?;
+    let transaction = connection.transaction().map_err(db_error)?;
+    ensure_task_transition(&transaction, task_id, TaskStatus::Completed)?;
+    let changed = transaction.execute("UPDATE tasks SET status='completed',result_json=?2,error_code=NULL,error_message=NULL,updated_at=?3 WHERE id=?1 AND deleted_at IS NULL", params![task_id,result_json,Utc::now().to_rfc3339()]).map_err(db_error)?;
     if changed == 0 {
         return Err(CommandError::new("task_missing", "任务不存在"));
+    }
+    transaction.commit().map_err(db_error)?;
+    Ok(())
+}
+
+pub fn update_task_result(
+    path: &Path,
+    task_id: &str,
+    result: &ReverseResult,
+) -> Result<(), CommandError> {
+    let result_json = bounded_json(
+        result,
+        MAX_RESULT_BYTES,
+        "task_result_too_large",
+        "任务结果超过 2 MiB 限制",
+    )?;
+    let changed = open(path)?
+        .execute(
+            "UPDATE tasks SET result_json=?2,updated_at=?3 WHERE id=?1 AND status='completed' AND deleted_at IS NULL",
+            params![task_id, result_json, Utc::now().to_rfc3339()],
+        )
+        .map_err(db_error)?;
+    if changed == 0 {
+        return Err(CommandError::new(
+            "task_status_invalid",
+            "只有已完成任务可以更新提示词结果",
+        ));
     }
     Ok(())
 }
@@ -406,7 +436,11 @@ pub fn fail_task(
     code: &str,
     message: &str,
 ) -> Result<(), CommandError> {
-    open(path)?.execute("UPDATE tasks SET status='failed',error_code=?2,error_message=?3,updated_at=?4 WHERE id=?1 AND deleted_at IS NULL", params![task_id,limit_text(code,64),limit_text(message,500),Utc::now().to_rfc3339()]).map_err(db_error)?;
+    let mut connection = open(path)?;
+    let transaction = connection.transaction().map_err(db_error)?;
+    ensure_task_transition(&transaction, task_id, TaskStatus::Failed)?;
+    transaction.execute("UPDATE tasks SET status='failed',error_code=?2,error_message=?3,updated_at=?4 WHERE id=?1 AND deleted_at IS NULL", params![task_id,limit_text(code,64),limit_text(message,500),Utc::now().to_rfc3339()]).map_err(db_error)?;
+    transaction.commit().map_err(db_error)?;
     Ok(())
 }
 
@@ -617,6 +651,30 @@ pub fn restore_trash(path: &Path, id: &str, kind: &str) -> Result<(), CommandErr
 pub fn permanent_delete(path: &Path, id: &str, kind: &str) -> Result<Vec<String>, CommandError> {
     let mut connection = open(path)?;
     let transaction = connection.transaction().map_err(db_error)?;
+    let exists_in_trash = match kind {
+        "project" => transaction
+            .query_row(
+                "SELECT 1 FROM projects WHERE id=?1 AND deleted_at IS NOT NULL",
+                params![id],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(db_error)?
+            .is_some(),
+        "task" => transaction
+            .query_row(
+                "SELECT 1 FROM tasks WHERE id=?1 AND deleted_at IS NOT NULL",
+                params![id],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(db_error)?
+            .is_some(),
+        _ => return Err(CommandError::new("trash_invalid", "废纸篓项目类型无效")),
+    };
+    if !exists_in_trash {
+        return Err(CommandError::new("trash_missing", "废纸篓项目不存在"));
+    }
     let assets=match kind {
         "project" => asset_candidates(&transaction,"SELECT DISTINCT original_asset_id FROM tasks WHERE project_id=?1 AND original_asset_id IS NOT NULL",id)?,
         "task" => asset_candidates(&transaction,"SELECT original_asset_id FROM tasks WHERE id=?1 AND original_asset_id IS NOT NULL",id)?,
@@ -658,6 +716,17 @@ pub fn permanent_delete(path: &Path, id: &str, kind: &str) -> Result<Vec<String>
         .collect();
     transaction.commit().map_err(db_error)?;
     Ok(removable)
+}
+
+pub fn original_asset_ids(path: &Path) -> Result<Vec<String>, CommandError> {
+    let connection = open(path)?;
+    let mut statement = connection
+        .prepare("SELECT DISTINCT original_asset_id FROM tasks WHERE original_asset_id IS NOT NULL")
+        .map_err(db_error)?;
+    let rows = statement
+        .query_map([], |row| row.get(0))
+        .map_err(db_error)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(db_error)
 }
 
 pub fn purge_expired(path: &Path) -> Result<Vec<String>, CommandError> {
@@ -814,7 +883,7 @@ fn parse_status(value: &str) -> TaskStatus {
 }
 fn can_transition(current: &str, next: TaskStatus) -> bool {
     if current == next.as_str() {
-        return true;
+        return current != TaskStatus::Completed.as_str();
     }
     match current {
         "ready" => matches!(
@@ -844,6 +913,29 @@ fn can_transition(current: &str, next: TaskStatus) -> bool {
         "completed" => false,
         _ => false,
     }
+}
+
+fn ensure_task_transition(
+    transaction: &Transaction<'_>,
+    task_id: &str,
+    next: TaskStatus,
+) -> Result<(), CommandError> {
+    let current = transaction
+        .query_row(
+            "SELECT status FROM tasks WHERE id=?1 AND deleted_at IS NULL",
+            params![task_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(db_error)?
+        .ok_or_else(|| CommandError::new("task_missing", "任务不存在"))?;
+    if !can_transition(&current, next) {
+        return Err(CommandError::new(
+            "task_status_invalid",
+            format!("任务状态不能从 {current} 变更为 {}", next.as_str()),
+        ));
+    }
+    Ok(())
 }
 fn task_tags(connection: &Connection, id: &str) -> Result<Vec<String>, CommandError> {
     let mut statement=connection.prepare("SELECT g.name FROM tags g JOIN task_tags tt ON tt.tag_id=g.id WHERE tt.task_id=?1 ORDER BY g.name").map_err(db_error)?;
@@ -985,6 +1077,31 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
+    fn test_task(id: &str, status: TaskStatus, result: Option<ReverseResult>) -> ProjectTask {
+        let now = Utc::now().to_rfc3339();
+        ProjectTask {
+            id: id.into(),
+            project_id: DEFAULT_PROJECT_ID.into(),
+            title: "任务".into(),
+            file_name: "a.jpg".into(),
+            thumbnail: None,
+            image_info: None,
+            original_image: None,
+            capture_metadata: None,
+            status,
+            favorite: false,
+            tags: vec![],
+            preset_snapshot: None,
+            result,
+            error_code: None,
+            error_message: None,
+            parent_task_id: None,
+            queue_position: 0,
+            created_at: now.clone(),
+            updated_at: now,
+        }
+    }
+
     #[test]
     fn initializes_defaults_and_filters_tasks() {
         let directory = tempdir().unwrap();
@@ -1120,6 +1237,106 @@ mod tests {
                 .unwrap_err()
                 .code,
             "preset_invalid"
+        );
+    }
+
+    #[test]
+    fn task_list_omits_heavy_result_but_get_task_returns_it() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        initialize(&path, &[]).unwrap();
+        let task = test_task(
+            "task-with-result",
+            TaskStatus::Completed,
+            Some(ReverseResult::default()),
+        );
+        insert_task(&path, &task, None).unwrap();
+
+        let listed = list_tasks(&path, DEFAULT_PROJECT_ID, TaskFilter::All, "", 0, 50)
+            .unwrap()
+            .items
+            .pop()
+            .unwrap();
+        assert!(listed.result.is_none());
+        assert!(get_task(&path, &task.id).unwrap().result.is_some());
+    }
+
+    #[test]
+    fn permanent_delete_rejects_active_project_and_preserves_tasks() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        initialize(&path, &[]).unwrap();
+        let task = test_task("active-task", TaskStatus::Ready, None);
+        insert_task(&path, &task, Some("asset-1")).unwrap();
+
+        let error = permanent_delete(&path, DEFAULT_PROJECT_ID, "project").unwrap_err();
+
+        assert_eq!(error.code, "trash_missing");
+        assert_eq!(get_task(&path, &task.id).unwrap().id, task.id);
+        assert_eq!(original_asset_ids(&path).unwrap(), vec!["asset-1"]);
+    }
+
+    #[test]
+    fn terminal_writes_enforce_task_state_machine() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        initialize(&path, &[]).unwrap();
+        let completed = test_task(
+            "completed-task",
+            TaskStatus::Completed,
+            Some(ReverseResult::default()),
+        );
+        insert_task(&path, &completed, None).unwrap();
+
+        assert_eq!(
+            complete_task(&path, &completed.id, &ReverseResult::default())
+                .unwrap_err()
+                .code,
+            "task_status_invalid"
+        );
+        assert_eq!(
+            fail_task(&path, &completed.id, "timeout", "超时")
+                .unwrap_err()
+                .code,
+            "task_status_invalid"
+        );
+
+        let running = test_task("running-task", TaskStatus::Running, None);
+        insert_task(&path, &running, None).unwrap();
+        complete_task(&path, &running.id, &ReverseResult::default()).unwrap();
+        assert_eq!(
+            get_task(&path, &running.id).unwrap().status,
+            TaskStatus::Completed
+        );
+    }
+
+    #[test]
+    fn completed_result_can_be_updated_without_reopening_terminal_transition() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        initialize(&path, &[]).unwrap();
+        let completed = test_task(
+            "editable-completed-task",
+            TaskStatus::Completed,
+            Some(ReverseResult::default()),
+        );
+        insert_task(&path, &completed, None).unwrap();
+        let mut updated = ReverseResult::default();
+        updated.prompts.zh = "手工派生版本".into();
+
+        update_task_result(&path, &completed.id, &updated).unwrap();
+
+        let task = get_task(&path, &completed.id).unwrap();
+        assert_eq!(task.status, TaskStatus::Completed);
+        assert_eq!(task.result.unwrap().prompts.zh, "手工派生版本");
+
+        let running = test_task("non-editable-running-task", TaskStatus::Running, None);
+        insert_task(&path, &running, None).unwrap();
+        assert_eq!(
+            update_task_result(&path, &running.id, &updated)
+                .unwrap_err()
+                .code,
+            "task_status_invalid"
         );
     }
 }

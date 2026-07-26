@@ -1,8 +1,11 @@
 use std::{
-    fs::File,
+    fs::OpenOptions,
     io::{Seek, Write},
     path::Path,
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
@@ -31,7 +34,12 @@ pub(crate) fn write_batch_zip(
             "至少选择一种导出内容",
         ));
     }
-    let file = File::create(destination)
+    let mut file_options = OpenOptions::new();
+    file_options.write(true).create_new(true);
+    #[cfg(unix)]
+    file_options.mode(0o600);
+    let file = file_options
+        .open(destination)
         .map_err(|_| CommandError::new("batch_export_write", "无法创建批量导出文件"))?;
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
@@ -125,5 +133,36 @@ fn extension(mime: &str) -> Result<&'static str, CommandError> {
         "image/jpeg" => Ok("jpg"),
         "image/webp" => Ok("webp"),
         _ => Err(CommandError::new("original_invalid", "原图格式无效")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn batch_export_never_truncates_an_existing_temporary_file() {
+        let directory = tempdir().unwrap();
+        let destination = directory.path().join("existing.zip.part");
+        std::fs::write(&destination, b"keep").unwrap();
+        let request = BatchExportRequest {
+            task_ids: vec!["task-1".into()],
+            markdown: true,
+            json: false,
+            text: false,
+            include_originals: false,
+        };
+
+        let error = write_batch_zip(
+            &directory.path().join("workspace.sqlite3"),
+            &directory.path().join("originals"),
+            &destination,
+            &request,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "batch_export_write");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"keep");
     }
 }

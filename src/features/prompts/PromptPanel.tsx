@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cancelReversePrompt, formatGeneratedAt, getActivePromptVersion, getErrorCode, getErrorMessage, runPromptOptimization } from "../../infrastructure/tauri";
 import type { CommandFailure, GenerationState, PromptOptimizationOutput, PromptOptimizationTarget, PromptVersion, ResultExportFormat, ReverseResult } from "../../shared/contracts";
 import { ProcessingStatus } from "../generation/ProcessingStatus";
-import { parseStreamingOptimization } from "../generation/stream";
+import { createStreamUpdateScheduler, parseStreamingOptimization } from "../generation/stream";
 
 interface PromptPanelProps {
   result: ReverseResult | null;
@@ -60,8 +60,15 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   const editorRef = useRef<HTMLPreElement>(null);
   const followStreamRef = useRef(true);
   const streamBufferRef = useRef("");
-  const streamFrameRef = useRef(0);
   const receivedCharactersRef = useRef(0);
+  const streamSchedulerRef = useRef<ReturnType<typeof createStreamUpdateScheduler> | null>(null);
+  if (!streamSchedulerRef.current) {
+    streamSchedulerRef.current = createStreamUpdateScheduler(() => {
+      setOptimizationReceivedCharacters(receivedCharactersRef.current);
+      const partial = parseStreamingOptimization(streamBufferRef.current);
+      if (partial) setOptimizationPartial(partial);
+    });
+  }
   const optimizationInteractionRef = useRef<string | undefined>(undefined);
   const optimizationStartedAtRef = useRef(0);
   const optimizationCancelRequestedRef = useRef(false);
@@ -88,7 +95,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
 
   useEffect(() => () => {
     if (optimizationInteractionRef.current) void cancelReversePrompt(optimizationInteractionRef.current);
-    window.cancelAnimationFrame(streamFrameRef.current);
+    streamSchedulerRef.current?.reset();
   }, []);
 
   useEffect(() => {
@@ -144,6 +151,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
     setOptimizationError(undefined);
     setOptimizationPartial(undefined);
     streamBufferRef.current = "";
+    streamSchedulerRef.current?.reset();
     optimizationInteractionRef.current = undefined;
     try {
       const output = await runPromptOptimization({
@@ -168,21 +176,14 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         setOptimizationState("streaming");
         streamBufferRef.current += event.content;
         receivedCharactersRef.current += Array.from(event.content).length;
-        if (!streamFrameRef.current) {
-          streamFrameRef.current = window.requestAnimationFrame(() => {
-            streamFrameRef.current = 0;
-            setOptimizationReceivedCharacters(receivedCharactersRef.current);
-            const partial = parseStreamingOptimization(streamBufferRef.current);
-            if (partial) setOptimizationPartial(partial);
-          });
-        }
+        streamSchedulerRef.current?.schedule();
       });
-      window.cancelAnimationFrame(streamFrameRef.current);
-      streamFrameRef.current = 0;
       if (optimizationCancelRequestedRef.current) {
+        streamSchedulerRef.current?.flush();
         setOptimizationState("cancelled");
         return;
       }
+      streamSchedulerRef.current?.cancel();
       const version: PromptVersion = {
         id: crypto.randomUUID(), target, requirements: requirements.trim(),
         origin: "optimization", sourceVersionId,
@@ -201,9 +202,11 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
       message.success?.("提示词优化完成并已保存为新版本");
     } catch (cause) {
       if (getErrorCode(cause) === "cancelled") {
+        streamSchedulerRef.current?.flush();
         setOptimizationState("cancelled");
         message.info?.("已停止优化，当前部分内容仍可复制");
       } else {
+        streamSchedulerRef.current?.flush();
         const text = getErrorMessage(cause);
         setOptimizationState("idle");
         setOptimizationError(text);

@@ -28,10 +28,12 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
           rustup component add rustfmt
+      - name: Verify npm lockfile sources
+        run: npm run verify:lockfile
       - name: Install dependencies
-        run: npm ci
-      - name: npm production dependency audit
-        run: npm audit --omit=dev --registry=https://registry.npmjs.org
+        run: npm ci --registry=https://registry.npmjs.org
+      - name: npm dependency audit
+        run: npm audit --registry=https://registry.npmjs.org
       - name: Frontend tests
         run: npm test
       - name: Frontend build
@@ -39,7 +41,7 @@ jobs:
       - name: Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Rust dependency audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:

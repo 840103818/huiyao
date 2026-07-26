@@ -17,12 +17,12 @@
 ```bash
 npm run check
 git diff --check
-npm audit --omit=dev --registry=https://registry.npmjs.org
+npm audit --registry=https://registry.npmjs.org
 cargo audit --file src-tauri/Cargo.lock
 codegraph sync
 ```
 
-`npm run check` 使用临时前端输出目录，不覆盖仓库 `dist/`，并验证生产 JavaScript 依赖图没有循环加载。
+`npm run check` 使用临时前端输出目录，不覆盖仓库 `dist/`，并验证 npm 锁文件只引用官方源且每个下载项都有完整性摘要，同时检查生产 JavaScript 依赖图没有循环加载。Rust 测试和目标依赖图使用 `--locked`，锁文件与清单不一致时直接失败。
 
 ## 回归要求
 

@@ -38,4 +38,10 @@ describe("ProjectTaskSidebar", () => {
     fireEvent.change(input, { target: { files } });
     expect(props.onImport).toHaveBeenCalledWith(files);
   });
+
+  it("keeps completed-task export available when list summaries omit the result", async () => {
+    renderSidebar({ tasks: [{ ...task, status: "completed", result: undefined }] });
+    fireEvent.click(screen.getByRole("button", { name: "棚拍产品 操作" }));
+    expect(await screen.findByText("导出任务")).not.toHaveClass("arco-menu-disabled");
+  });
 });

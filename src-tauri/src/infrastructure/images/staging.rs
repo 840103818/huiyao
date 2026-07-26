@@ -44,6 +44,33 @@ pub fn stage(
     })
 }
 
+pub fn inspect_stage(
+    directory: &Path,
+    staging_id: &str,
+    file_name: &str,
+    key: &[u8; 32],
+) -> Result<OriginalImageStage, CommandError> {
+    let bytes = load_stage(directory, staging_id, key)?;
+    let mime_type = detect_mime(&bytes)
+        .ok_or_else(|| CommandError::new("original_invalid", "无法识别原图格式"))?;
+    validate_source(&bytes, file_name, mime_type)?;
+    let source_size = imagesize::blob_size(&bytes)
+        .map_err(|_| CommandError::new("original_invalid", "无法识别原图尺寸"))?;
+    Ok(OriginalImageStage {
+        staging_id: staging_id.to_owned(),
+        info: OriginalImageInfo {
+            file_name: file_name.to_owned(),
+            mime_type: mime_type.to_owned(),
+            size: bytes.len() as u64,
+            stored_at: Utc::now().to_rfc3339(),
+            encryption_version: VERSION,
+        },
+        capture_metadata: extract_capture_metadata(&bytes),
+        source_width: source_size.width as u32,
+        source_height: source_size.height as u32,
+    })
+}
+
 fn validate_staging_capacity(directory: &Path, incoming_bytes: u64) -> Result<(), CommandError> {
     ensure_private_dir(directory, "original_stage")?;
     let mut count = 0usize;
@@ -67,4 +94,3 @@ fn validate_staging_capacity(directory: &Path, incoming_bytes: u64) -> Result<()
     }
     Ok(())
 }
-

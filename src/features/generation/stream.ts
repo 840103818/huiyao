@@ -1,6 +1,57 @@
 import { parse } from "partial-json";
 import type { PromptOptimizationOutput, ReverseResult } from "../../shared/contracts";
 
+export const STREAM_PARTIAL_UPDATE_INTERVAL_MS = 80;
+
+export interface StreamUpdateScheduler {
+  schedule: () => void;
+  flush: () => void;
+  cancel: () => void;
+  reset: () => void;
+}
+
+export function createStreamUpdateScheduler(
+  update: () => void,
+  intervalMs = STREAM_PARTIAL_UPDATE_INTERVAL_MS,
+  now: () => number = () => performance.now(),
+): StreamUpdateScheduler {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pending = false;
+  let lastUpdateAt = Number.NEGATIVE_INFINITY;
+
+  const run = () => {
+    timer = undefined;
+    if (!pending) return;
+    pending = false;
+    lastUpdateAt = now();
+    update();
+  };
+  const cancel = () => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    pending = false;
+  };
+
+  return {
+    schedule() {
+      pending = true;
+      if (timer !== undefined) return;
+      const delay = Math.max(0, intervalMs - (now() - lastUpdateAt));
+      timer = setTimeout(run, delay);
+    },
+    flush() {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+      run();
+    },
+    cancel,
+    reset() {
+      cancel();
+      lastUpdateAt = Number.NEGATIVE_INFINITY;
+    },
+  };
+}
+
 export function parseStreamingResult(content: string): ReverseResult | null {
   const start = content.indexOf("{");
   if (start < 0) return null;
