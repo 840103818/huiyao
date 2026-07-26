@@ -3,6 +3,7 @@ import { IconCheckCircle, IconClockCircle, IconExperiment, IconStorage } from "@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toolbar } from "./shell/Toolbar";
 import type { AppView } from "./shell/Toolbar";
+import { WorkspaceLayout } from "./shell/WorkspaceLayout";
 import { useMediaQuery } from "./state/useMediaQuery";
 import { useTheme } from "./state/useTheme";
 import { useClipboardImage, useWorkspaceShortcuts } from "./state/useWorkspaceInteractions";
@@ -1281,21 +1282,26 @@ export default function App() {
       {view === "settings" ? (
         <SettingsView
           settings={settings}
-          onBack={() => navigate("workspace")}
           onSaved={(saved) => { setSettings(saved); setSettingsDirty(false); }}
           onThemeChange={handleThemeChange}
           onDirtyChange={setSettingsDirty}
           onOriginalsCleared={reloadHistory}
         />
       ) : view === "logs" ? (
-        <LogsView onBack={() => navigate("workspace")} requestFilter={logsRequestFilter} />
+        <LogsView requestFilter={logsRequestFilter} />
       ) : (
-        <div className={`workspace ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          {!compactHistory && !sidebarCollapsed ? sidebar : null}
-          <main className="workbench-grid">
-            {workspaceUi && !activeTaskId && !displayImage ? (
-              <ProjectOverview project={projects.find((item) => item.id === activeProjectId)} tasks={projectTasks} progress={batchProgress} onImport={() => document.querySelector<HTMLInputElement>('.project-import input')?.click()} onStart={() => void startQueue()} onSelect={(task) => void selectProjectTask(task)} />
-            ) : (<>
+        <>
+        <WorkspaceLayout
+          sidebar={sidebar}
+          sidebarVisible={!compactHistory && !sidebarCollapsed}
+          sidebarWidth={settings.workspace.projectSidebarWidth}
+          inputSplitPercent={settings.workspace.inputSplitPercent}
+          onSidebarWidthChange={(value) => updateWorkspacePreferences({ projectSidebarWidth: value })}
+          onInputSplitChange={(value) => updateWorkspacePreferences({ inputSplitPercent: value })}
+          overview={workspaceUi && !activeTaskId && !displayImage ? (
+            <ProjectOverview project={projects.find((item) => item.id === activeProjectId)} tasks={projectTasks} progress={batchProgress} onImport={() => document.querySelector<HTMLInputElement>('.project-import input')?.click()} onImportFiles={handleBatchImport} onStart={() => void startQueue()} onSelect={(task) => void selectProjectTask(task)} />
+          ) : undefined}
+          input={workspaceUi && !activeTaskId && !displayImage ? undefined : (
             <ImageWorkbench
               image={image}
               displayImage={displayImage}
@@ -1335,6 +1341,8 @@ export default function App() {
                 : undefined}
               onRemoveImage={handleRemoveCurrentImage}
             />
+          )}
+          result={workspaceUi && !activeTaskId && !displayImage ? undefined : (
             <ResultsWorkspace
               result={result}
               error={generationError}
@@ -1359,26 +1367,26 @@ export default function App() {
               initialSplitPercent={settings.workspace.resultSplitPercent}
               onSplitChange={(value) => updateWorkspacePreferences({ resultSplitPercent: value })}
             />
-            </>)}
-          </main>
-          <Drawer className="history-drawer" width={300} title="项目与任务" placement="left" visible={historyDrawerOpen} onCancel={() => setHistoryDrawerOpen(false)} footer={null} unmountOnExit>
-            {sidebar}
-          </Drawer>
-        </div>
+          )}
+        />
+        <Drawer className="history-drawer" width={320} title="项目与任务" placement="left" visible={historyDrawerOpen} onCancel={() => setHistoryDrawerOpen(false)} footer={null} unmountOnExit>
+          {sidebar}
+        </Drawer>
+        </>
       )}
       </Suspense>
 
       {view === "workspace" ? (
         <footer className="statusbar">
-          <span><IconExperiment />模型：<strong>{result?.metadata.model || (loading ? settings.model : "--")}</strong></span>
-          <span><IconClockCircle />首字：<strong>{firstTokenMs ? `${firstTokenMs} 毫秒` : "--"}</strong></span>
-          <span><IconStorage />令牌数：<strong>{isFinalResult ? result?.metadata.totalTokens?.toLocaleString() ?? "--" : "--"}</strong></span>
-          <span><IconClockCircle />耗时：<strong>{statusTime}</strong></span>
+          {settings.hasApiKey ? <span><IconExperiment />模型：<strong>{result?.metadata.model || settings.model}</strong></span> : null}
+          {firstTokenMs ? <span><IconClockCircle />首字：<strong>{firstTokenMs} 毫秒</strong></span> : null}
+          {isFinalResult && result?.metadata.totalTokens ? <span><IconStorage />令牌数：<strong>{result.metadata.totalTokens.toLocaleString()}</strong></span> : null}
+          {elapsedMs > 0 ? <span><IconClockCircle />耗时：<strong>{statusTime}</strong></span> : null}
           <span className={`status-saved ${generationStateClass(generationState)}`}>
             {generationState === "complete" ? <IconCheckCircle /> : <IconClockCircle />}
             {generationStateLabel(generationState)}
           </span>
-          <span className="queue-status">队列：<strong>{batchProgress.completed}/{batchProgress.total}</strong></span>
+          {batchProgress.total ? <span className="queue-status">队列：<strong>{batchProgress.completed}/{batchProgress.total}</strong></span> : null}
         </footer>
       ) : null}
       <Modal title="快捷命令" visible={commandOpen} footer={null} onCancel={() => setCommandOpen(false)} className="command-palette" unmountOnExit>

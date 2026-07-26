@@ -24,6 +24,14 @@ npm run dev          # 仅调试前端
 
 Vite 固定使用 `127.0.0.1:1420`。配置只来自 `vite.config.ts`，不要创建会遮蔽它的 `vite.config.js`。
 
+项目工作区的脱敏浏览器预览可使用：
+
+```text
+http://127.0.0.1:1420/?workspace-preview=1
+```
+
+该预览只提供本地项目、任务和预设测试数据，不调用模型、Keychain、SQLite 或原图接口。
+
 ## 开发流程
 
 1. 检查 `git status`，记录并保留已有未提交修改；从当前稳定基线建立独立功能分支。
@@ -48,7 +56,9 @@ npm test -- src/features/prompts/PromptPanel.test.tsx
 cargo test --locked --manifest-path src-tauri/Cargo.toml api::tests -- --nocapture
 ```
 
-HTTP 测试使用本地 Mock 服务，不接触真实 API Key。浏览器验证优先使用 `browser-skill`，测试数据不得包含用户图片或模型正文。
+HTTP 测试使用本地 Mock 服务，不接触真实 API Key。浏览器验证优先使用 `browser-skill`；扩展不可用时可使用工作区 Playwright 依赖执行同等尺寸检查，并在结果中说明降级。测试数据不得包含用户图片或模型正文。
+
+界面验收至少检查 1440×900 浅色和 1120×720 深色，并确认 `scrollWidth === clientWidth`、Drawer/Modal 主题正确、分隔器可键盘操作。更新后的截图直接覆盖 `docs/assets/ui/current/` 对应基线，临时对比图放入 `artifacts/visual-review/`。
 
 ## 目录约定
 

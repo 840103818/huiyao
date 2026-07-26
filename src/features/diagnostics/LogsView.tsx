@@ -1,14 +1,14 @@
 import { Button, Empty, Input, Message, Popconfirm, Select, Spin, Switch, Table, Tag } from "@arco-design/web-react";
-import { IconCopy, IconDelete, IconDownload, IconLeft, IconRefresh, IconSafe, IconSearch } from "@arco-design/web-react/icon";
+import { IconCopy, IconDelete, IconDownload, IconRefresh, IconSafe, IconSearch } from "@arco-design/web-react/icon";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { clearRuntimeLogs, exportDiagnostic, exportRuntimeLogs, getErrorMessage, loadRuntimeLogs } from "../../infrastructure/tauri";
 import type { RuntimeLogEntry, RuntimeLogLevel } from "../../shared/contracts";
 
-interface LogsViewProps { onBack: () => void; requestFilter?: string }
+interface LogsViewProps { requestFilter?: string }
 type LevelFilter = "all" | RuntimeLogLevel;
 type CategoryFilter = "all" | "model" | "system" | "storage";
 
-export function LogsView({ onBack, requestFilter }: LogsViewProps) {
+export function LogsView({ requestFilter }: LogsViewProps) {
   const [message, messageContext] = Message.useMessage();
   const messageRef = useRef(message);
   messageRef.current = message;
@@ -56,7 +56,6 @@ export function LogsView({ onBack, requestFilter }: LogsViewProps) {
       {messageContext}
       <div className="logs-container">
         <header className="page-title-row logs-title">
-          <Button shape="circle" type="text" icon={<IconLeft />} onClick={onBack} aria-label="返回工作台" />
           <div><span>运行诊断</span><h1>系统运行日志</h1></div>
           <Tag icon={<IconSafe />} color="green">不记录密钥、输入正文和原始图片</Tag>
         </header>

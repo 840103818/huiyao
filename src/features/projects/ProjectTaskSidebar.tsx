@@ -134,7 +134,7 @@ export function ProjectTaskSidebar(props: Props) {
       ) : null}
       <div className="project-task-list">
         {props.tasks.length ? props.tasks.map((task, taskIndex) => (
-          <article key={task.id} className={`project-task ${task.id === props.activeTaskId ? "active" : ""}`} onClick={() => props.onSelectTask(task)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") props.onSelectTask(task); }}>
+          <article key={task.id} className={`project-task ${task.id === props.activeTaskId ? "active" : ""} ${selected.has(task.id) ? "selected" : ""}`} data-status={task.status} aria-label={`项目任务：${task.title}`} onClick={() => props.onSelectTask(task)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") props.onSelectTask(task); }}>
             <Checkbox checked={selected.has(task.id)} onChange={(checked, event) => { event?.stopPropagation(); toggleSelection(task.id, checked); }} aria-label={`选择 ${task.title}`} />
             <div className="task-thumbnail">{task.thumbnail ? <img src={task.thumbnail} alt="" /> : <IconDragDotVertical />}</div>
             <div className="task-copy"><strong title={task.title}>{task.title}</strong><span>{statusLabel(task.status)}{task.errorCode ? ` · ${task.errorCode}` : ""}</span><div>{task.tags.slice(0, 2).map((tag) => <Tag key={tag} size="small">{tag}</Tag>)}{task.originalImage ? <small>原图</small> : null}</div></div>

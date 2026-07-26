@@ -81,5 +81,12 @@ function getLocalSettings(): PublicSettings {
 }
 
 function normalizeSettings(value: Partial<PublicSettings>): PublicSettings {
-  return { ...defaultSettings, ...value, workspace: { ...defaultSettings.workspace, ...(value.workspace ?? {}) } };
+  const workspace = { ...defaultSettings.workspace, ...(value.workspace ?? {}) };
+  workspace.projectSidebarWidth = normalizeOptionalNumber(workspace.projectSidebarWidth, 240, 336);
+  workspace.inputSplitPercent = normalizeOptionalNumber(workspace.inputSplitPercent, 42, 64);
+  return { ...defaultSettings, ...value, workspace };
+}
+
+function normalizeOptionalNumber(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : undefined;
 }

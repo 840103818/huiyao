@@ -133,6 +133,10 @@ pub struct WorkspacePreferences {
     pub fit_mode: FitMode,
     #[serde(default)]
     pub result_split_percent: Option<f64>,
+    #[serde(default)]
+    pub project_sidebar_width: Option<f64>,
+    #[serde(default)]
+    pub input_split_percent: Option<f64>,
 }
 
 impl Default for WorkspacePreferences {
@@ -142,6 +146,8 @@ impl Default for WorkspacePreferences {
             detail_level: DetailLevel::Expert,
             fit_mode: FitMode::Contain,
             result_split_percent: None,
+            project_sidebar_width: None,
+            input_split_percent: None,
         }
     }
 }
@@ -152,6 +158,14 @@ impl WorkspacePreferences {
             .result_split_percent
             .filter(|value| value.is_finite())
             .map(|value| value.clamp(28.0, 66.0));
+        self.project_sidebar_width = self
+            .project_sidebar_width
+            .filter(|value| value.is_finite())
+            .map(|value| value.clamp(240.0, 336.0));
+        self.input_split_percent = self
+            .input_split_percent
+            .filter(|value| value.is_finite())
+            .map(|value| value.clamp(42.0, 64.0));
         self
     }
 }
