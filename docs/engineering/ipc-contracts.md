@@ -18,6 +18,18 @@
 | 导出 | `export_result`、`export_runtime_logs`、`export_diagnostic` |
 | 日志 | `load_runtime_logs`、`clear_runtime_logs` |
 
+## 1.0 工作区命令
+
+- 项目：`list_projects`、`create_project`、`rename_project`、`delete_project`。
+- 任务：`list_project_tasks`、`get_project_task`、`import_project_task`、`update_project_task_status`、`complete_project_task`、`fail_project_task`。
+- 任务组织：`set_project_task_favorite`、`set_project_task_tags`、`move_project_tasks`、`reorder_project_tasks`、`duplicate_project_task`、`delete_project_tasks`。
+- 队列与预设：`get_batch_progress`、`list_reverse_presets`、`save_reverse_preset`、`delete_reverse_preset`。
+- 废纸篓：`list_trash`、`restore_trash_entry`、`permanently_delete_trash_entry`、`empty_trash`。
+- 原图与导出：`load_workspace_original_image`、`export_workspace_original_image`、`export_project_tasks`。
+- 会话：`save_workspace_session`，只更新上次项目和任务，不覆盖模型设置。
+
+`TaskStatus` 固定为 `ready / queued / preparing / running / completed / failed / paused / cancelled / blocked`。列表请求使用 `offset/limit`，后端把 `limit` 限制为 50。
+
 ## 流式事件
 
 - `started`：包含本次 `interactionId`。

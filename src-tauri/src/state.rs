@@ -48,6 +48,10 @@ impl AppState {
         self.app_data_dir.join("history.json")
     }
 
+    pub(crate) fn workspace_path(&self) -> PathBuf {
+        self.app_data_dir.join("workspace.sqlite3")
+    }
+
     pub(crate) fn log_path(&self) -> PathBuf {
         self.app_data_dir.join("runtime.jsonl")
     }

@@ -1,0 +1,23 @@
+.project-sidebar { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto auto auto auto auto minmax(0,1fr) auto; gap: 8px; padding: 10px; border-right: 1px solid var(--border); background: var(--surface); }
+.project-switcher, .project-search-row, .preset-row, .queue-actions, .batch-toolbar { display: flex; align-items: center; gap: 6px; }
+.project-switcher .arco-select, .project-search-row .arco-input-group, .preset-row .arco-select { min-width: 0; flex: 1; }
+.project-search-row { align-items: stretch; flex-direction: column; }
+.task-filter { width: 100% !important; }
+.preset-row > span { flex: none; color: var(--muted); font-size: 11px; }
+.queue-summary { display: grid; gap: 6px; padding: 9px; border-radius: 6px; background: var(--surface-2); }
+.queue-summary > div:first-child { display: flex; align-items: baseline; justify-content: space-between; }
+.queue-summary > div:first-child strong { font-size: 14px; }.queue-summary > div:first-child span { color: var(--muted); font-size: 10px; }
+.queue-actions .arco-btn:first-child { min-width: 0; flex: 1; }
+.batch-toolbar { min-height: 34px; padding: 0 6px; border: 1px solid var(--brand-soft); border-radius: 6px; background: var(--brand-wash); }
+.batch-toolbar .arco-checkbox { margin-right: auto; }
+.project-task-list { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+.project-task { display: grid; min-height: 58px; grid-template-columns: 18px 44px minmax(0,1fr) 28px; align-items: center; gap: 7px; margin-bottom: 3px; padding: 6px; border-radius: 6px; cursor: default; transition: background 150ms ease, box-shadow 150ms ease; }
+.project-task:hover { background: var(--surface-2); }.project-task.active { background: var(--brand-wash); box-shadow: inset 2px 0 var(--brand); }
+.task-thumbnail { display: grid; width: 44px; height: 44px; place-items: center; overflow: hidden; border-radius: 4px; background: var(--canvas); color: var(--faint); }.task-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.task-copy { min-width: 0; }.task-copy > strong, .task-copy > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.task-copy > strong { font-size: 12px; }.task-copy > span { margin-top: 3px; color: var(--muted); font-size: 10px; }.task-copy > div { display: flex; align-items: center; gap: 3px; min-height: 16px; margin-top: 3px; }.task-copy small { color: var(--success); font-size: 9px; }
+.task-more { opacity: 0; }.project-task:hover .task-more,.project-task:focus-within .task-more,.project-task.active .task-more { opacity: 1; }
+.project-import { padding-top: 2px; }.project-delete-action { margin-top: 14px; }.trash-list { display: grid; gap: 6px; }.trash-entry { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 6px; padding: 9px; border-bottom: 1px solid var(--border); }.trash-entry strong,.trash-entry span { display: block; }.trash-entry span { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.preset-requirements { margin-top: 10px; }
+.project-overview { grid-column: 1 / -1; min-width: 0; min-height: 0; overflow: auto; padding: 28px 32px; background: var(--surface-2); }.project-overview > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; max-width: 980px; margin: 0 auto 24px; }.project-overview > header span { color: var(--muted); font-size: 11px; }.project-overview h1 { margin: 5px 0 0; font-size: 24px; font-weight: 680; }.project-overview > header > div:last-child { display: flex; gap: 8px; }
+.overview-metrics { display: grid; max-width: 980px; grid-template-columns: repeat(4,1fr); gap: 1px; margin: 0 auto 22px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; background: var(--border); }.overview-metrics > div { min-height: 90px; padding: 18px; background: var(--surface); }.overview-metrics strong,.overview-metrics span { display: block; }.overview-metrics strong { font-size: 24px; font-weight: 620; }.overview-metrics span { margin-top: 10px; color: var(--muted); font-size: 11px; }.overview-metrics svg { margin-right: 4px; }
+.overview-recent { max-width: 980px; margin: auto; }.overview-recent h2 { margin: 0 0 10px; font-size: 13px; }.overview-recent > button { display: grid; width: 100%; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 10px; min-height: 56px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: default; }.overview-recent > button:hover,.overview-recent > button:focus-visible { background: var(--surface); }.overview-recent > button small { color: var(--muted); }

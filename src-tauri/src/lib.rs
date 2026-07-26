@@ -18,5 +18,7 @@ mod runtime_log;
 mod state;
 #[path = "infrastructure/persistence/store.rs"]
 mod store;
+#[path = "infrastructure/persistence/workspace.rs"]
+mod workspace_store;
 
 pub use bootstrap::run;

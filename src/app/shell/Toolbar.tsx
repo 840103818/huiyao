@@ -13,6 +13,9 @@ interface ToolbarProps {
   view: AppView;
   generationState: GenerationState;
   elapsedMs: number;
+  projectTitle?: string;
+  taskTitle?: string;
+  queueProgress?: string;
   onToggleSidebar: () => void;
   onNavigate: (view: AppView) => void;
 }
@@ -23,6 +26,9 @@ export function Toolbar({
   view,
   generationState,
   elapsedMs,
+  projectTitle,
+  taskTitle,
+  queueProgress,
   onToggleSidebar,
   onNavigate,
 }: ToolbarProps) {
@@ -53,10 +59,12 @@ export function Toolbar({
       </div>
 
       {workspaceOpen ? (
-        <div className="engine-status" data-state={generationState} data-tauri-drag-region>
+        <div className="workspace-location" data-state={generationState} data-tauri-drag-region>
+          <span>{projectTitle ?? "我的项目"}</span><b>/</b><strong>{taskTitle ?? "项目概览"}</strong>
           <i />
-          <strong>{toolbarState(generationState)}</strong>
+          <em>{toolbarState(generationState)}</em>
           {isActiveState(generationState) ? <time>{(elapsedMs / 1000).toFixed(1)} 秒</time> : null}
+          {queueProgress ? <small>队列 {queueProgress}</small> : null}
         </div>
       ) : (
         <div className="toolbar-title" data-tauri-drag-region>{view === "settings" ? "系统设置" : "系统运行日志"}</div>

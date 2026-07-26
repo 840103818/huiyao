@@ -4,3 +4,4 @@
 //! and orchestration logic to modules in this layer.
 
 pub(crate) mod result_export;
+pub(crate) mod workspace_export;

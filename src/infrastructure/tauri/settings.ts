@@ -15,6 +15,9 @@ const defaultSettings: PublicSettings = {
   hasApiKey: false,
   autoSaveHistory: true,
   workspace: { outputLanguage: "chinese", detailLevel: "expert", fitMode: "contain" },
+  batchConcurrency: 1,
+  storageQuotaBytes: 10 * 1024 * 1024 * 1024,
+  progressiveDisclosure: true,
 };
 
 export async function getSettings(): Promise<PublicSettings> {
@@ -35,6 +38,11 @@ export async function saveSettings(input: SettingsInput): Promise<PublicSettings
     autoSaveHistory: input.autoSaveHistory,
     insecureHttpOrigin: input.insecureHttpOrigin,
     workspace: current.workspace,
+    lastProjectId: current.lastProjectId,
+    lastTaskId: current.lastTaskId,
+    batchConcurrency: input.batchConcurrency ?? current.batchConcurrency,
+    storageQuotaBytes: input.storageQuotaBytes ?? current.storageQuotaBytes,
+    progressiveDisclosure: input.progressiveDisclosure ?? current.progressiveDisclosure,
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   return settings;

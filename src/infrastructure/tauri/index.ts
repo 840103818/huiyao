@@ -5,3 +5,4 @@ export * from "./generation";
 export * from "./history";
 export * from "./originals";
 export * from "./settings";
+export * from "./workspace";
