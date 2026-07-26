@@ -62,7 +62,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   const streamBufferRef = useRef("");
   const streamFrameRef = useRef(0);
   const receivedCharactersRef = useRef(0);
-  const optimizationInteractionRef = useRef<string>();
+  const optimizationInteractionRef = useRef<string | undefined>(undefined);
   const optimizationStartedAtRef = useRef(0);
   const optimizationCancelRequestedRef = useRef(false);
   const loading = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);

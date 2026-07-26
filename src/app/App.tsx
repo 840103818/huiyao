@@ -175,7 +175,7 @@ export default function App() {
   const imageTaskRef = useRef(0);
   const historyRef = useRef<HistoryItem[]>([]);
   const historyQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const preferencesTimerRef = useRef<number>();
+  const preferencesTimerRef = useRef<number | undefined>(undefined);
   const queuePausedRef = useRef(false);
   const queueStopRef = useRef(false);
   const queueInteractionIdsRef = useRef(new Set<string>());
