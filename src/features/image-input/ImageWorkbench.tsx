@@ -1,6 +1,5 @@
 import { Button, Drawer, Dropdown, Input, Menu, Modal, Radio, Slider, Tag, Tooltip, Upload } from "@arco-design/web-react";
 import {
-  IconClose,
   IconDelete,
   IconDownload,
   IconExpand,
@@ -19,8 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import type { DetailLevel, GenerationState, ImageInfo, OutputLanguage, PreparedImage } from "../../shared/contracts";
-import { setViewerChromeHidden } from "../../infrastructure/tauri";
 import { ProcessingStatus } from "../generation/ProcessingStatus";
+import { ImageViewer } from "./ImageViewer";
 import { formatBytes } from "./image";
 
 interface ImageWorkbenchProps {
@@ -453,136 +452,5 @@ function ToolButton({ label, disabled, onClick, children }: { label: string; dis
 }
 
 interface DragState { pointerId: number; startX: number; startY: number; originX: number; originY: number }
-
-function ImageViewer({ src, alt, info, onClose }: { src: string; alt: string; info: ImageInfo | null; onClose: () => void }) {
-  const [zoom, setZoom] = useState(100);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<DragState | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
-
-  const clampPan = useCallback((value: { x: number; y: number }, atZoom: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !info) return { x: 0, y: 0 };
-    const availableWidth = Math.max(1, canvas.clientWidth - 48);
-    const availableHeight = Math.max(1, canvas.clientHeight - 48);
-    const imageRatio = info.width / info.height;
-    const canvasRatio = availableWidth / availableHeight;
-    const baseWidth = imageRatio > canvasRatio ? availableWidth : availableHeight * imageRatio;
-    const baseHeight = imageRatio > canvasRatio ? availableWidth / imageRatio : availableHeight;
-    const maxX = Math.max(0, (baseWidth * atZoom / 100 - availableWidth) / 2);
-    const maxY = Math.max(0, (baseHeight * atZoom / 100 - availableHeight) / 2);
-    return { x: Math.min(maxX, Math.max(-maxX, value.x)), y: Math.min(maxY, Math.max(-maxY, value.y)) };
-  }, [info]);
-
-  const updateZoom = useCallback((next: number, point?: { x: number; y: number }) => {
-    const clamped = clampZoom(next, 25, 500);
-    setZoom((previous) => {
-      setPan((current) => {
-        if (clamped <= 100) return { x: 0, y: 0 };
-        if (!point || !canvasRef.current) return clampPan(current, clamped);
-        const rect = canvasRef.current.getBoundingClientRect();
-        const offsetX = point.x - rect.left - rect.width / 2;
-        const offsetY = point.y - rect.top - rect.height / 2;
-        const ratio = clamped / previous;
-        return clampPan({ x: offsetX - (offsetX - current.x) * ratio, y: offsetY - (offsetY - current.y) * ratio }, clamped);
-      });
-      return clamped;
-    });
-  }, [clampPan]);
-  const reset = useCallback(() => { setZoom(100); setPan({ x: 0, y: 0 }); }, []);
-
-  useEffect(() => {
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-    dialogRef.current?.focus();
-    const hideChrome = setViewerChromeHidden(true);
-    void hideChrome.catch(() => undefined);
-    return () => {
-      void hideChrome.finally(() => setViewerChromeHidden(false)).catch(() => undefined);
-      restoreFocusRef.current?.focus();
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      else if (event.key === "0") reset();
-      else if (event.key === "+" || event.key === "=") updateZoom(zoom + 25);
-      else if (event.key === "-") updateZoom(zoom - 25);
-      else if (event.key === "Tab" && dialogRef.current) {
-        const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [tabindex='0']"));
-        if (!controls.length) return;
-        const index = controls.indexOf(document.activeElement as HTMLElement);
-        const next = event.shiftKey ? (index <= 0 ? controls.length - 1 : index - 1) : (index < 0 || index === controls.length - 1 ? 0 : index + 1);
-        event.preventDefault();
-        controls[next]?.focus();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, reset, updateZoom, zoom]);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || typeof ResizeObserver === "undefined") return;
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => setPan((current) => clampPan(current, zoom)));
-    });
-    observer.observe(canvas);
-    return () => { window.cancelAnimationFrame(frame); observer.disconnect(); };
-  }, [clampPan, zoom]);
-
-  const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (zoom <= 100 || event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pan.x, originY: pan.y };
-  };
-  const movePan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    setPan(clampPan({ x: drag.originX + event.clientX - drag.startX, y: drag.originY + event.clientY - drag.startY }, zoom));
-  };
-  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) return;
-    dragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-  };
-  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (event.ctrlKey) {
-      updateZoom(zoom - event.deltaY * 0.3, { x: event.clientX, y: event.clientY });
-    } else if (zoom > 100) {
-      setPan((current) => clampPan({ x: current.x - event.deltaX, y: current.y - event.deltaY }, zoom));
-    }
-  };
-
-  return (
-    <div ref={dialogRef} className="image-viewer" role="dialog" aria-modal="true" aria-label="图片查看器" data-image-viewer="open" tabIndex={-1}>
-      <header className="viewer-toolbar">
-        <div><strong>{alt}</strong><span>{info ? `${info.width} × ${info.height} · ${formatBytes(info.size)}` : "历史缩略图"}</span></div>
-        <nav aria-label="图片缩放工具">
-          <ToolButton label="缩小" onClick={() => updateZoom(zoom - 25)}><IconZoomOut /></ToolButton>
-          <Slider min={25} max={500} step={5} value={zoom} onChange={(value) => updateZoom(value as number)} aria-label="缩放比例" />
-          <output>{zoom}%</output>
-          <ToolButton label="放大" onClick={() => updateZoom(zoom + 25)}><IconZoomIn /></ToolButton>
-          <ToolButton label="适应窗口" onClick={reset}><IconRefresh /></ToolButton>
-          <ToolButton label="关闭" onClick={onClose}><IconClose /></ToolButton>
-        </nav>
-      </header>
-      <div
-        ref={canvasRef}
-        className={`viewer-canvas ${zoom > 100 ? "can-pan" : ""}`}
-        onWheel={handleWheel}
-        onDoubleClick={(event) => { if (zoom === 100) updateZoom(200, { x: event.clientX, y: event.clientY }); else reset(); }}
-        onPointerDown={beginPan}
-        onPointerMove={movePan}
-        onPointerUp={endPan}
-        onPointerCancel={endPan}
-      ><img src={src} alt={alt} draggable={false} style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom / 100})` }} /></div>
-    </div>
-  );
-}
 
 function clampZoom(value: number, min: number, max: number): number { return Math.round(Math.min(max, Math.max(min, value))); }

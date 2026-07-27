@@ -6,6 +6,7 @@ import { desktopOnlyError, isDesktopApp, migrateLocalValue } from "./core";
 
 const SETTINGS_KEY = "huiyao-settings-v1";
 const LEGACY_SETTINGS_KEY = "reverse-prompt-settings-v1";
+let viewerChromeUpdate = Promise.resolve();
 
 const defaultSettings: PublicSettings = {
   baseUrl: "https://api.openai.com/v1",
@@ -67,7 +68,11 @@ export async function applyNativeTheme(theme: ThemeMode): Promise<void> {
 }
 
 export async function setViewerChromeHidden(hidden: boolean): Promise<void> {
-  if (isDesktopApp()) await getCurrentWindow().setDecorations(!hidden);
+  if (!isDesktopApp()) return;
+  viewerChromeUpdate = viewerChromeUpdate
+    .catch(() => undefined)
+    .then(() => getCurrentWindow().setDecorations(!hidden));
+  await viewerChromeUpdate;
 }
 
 export async function testConnection(input: SettingsInput): Promise<{ model: string; message: string }> {
