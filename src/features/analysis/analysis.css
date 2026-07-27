@@ -1,24 +1,24 @@
-.analysis-panel { display: grid; grid-template-rows: 44px 40px minmax(0, 1fr); container-type: inline-size; }
+.analysis-panel { display: grid; grid-template-rows: 42px 38px minmax(0, 1fr); container-type: inline-size; }
 .analysis-title, .analysis-header-actions { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .analysis-title .arco-tag { color: var(--muted); border-color: transparent; background: var(--surface-2); }
 .analysis-header-actions .arco-btn { color: var(--muted); }
 .analysis-header-actions .arco-btn:hover { color: var(--brand); background: var(--brand-soft); }
-.analysis-subhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 9px 0 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.analysis-subhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 0 11px; border-bottom: 1px solid var(--border); color: var(--muted); background: var(--surface-2); font-size: 11px; }
 .analysis-subhead > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .analysis-subhead .arco-radio-group { flex: 0 0 auto; }
-.analysis-subhead .arco-radio-button { padding: 0 8px; font-size: 11px; }
+.analysis-subhead .arco-radio-button { min-height: 28px; padding: 0 9px; border-color: transparent !important; font-size: 11px; }
 .analysis-expand-actions { justify-content: flex-end; }
 .analysis-expand-all { color: var(--muted) !important; font-size: 11px !important; }
 .analysis-grid { display: flex; min-height: 0; flex-direction: column; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; }
 .analysis-row-group { flex: 0 0 auto; scroll-margin-top: 0; }
-.analysis-group-heading { position: sticky; z-index: 1; top: 0; display: flex; height: 26px; align-items: center; padding: 0 13px; color: var(--faint); border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 10px; font-weight: 650; }
-.analysis-item { display: grid; flex: 0 0 auto; min-width: 0; min-height: 60px; grid-template-columns: 112px minmax(0, 1fr); align-items: stretch; border-bottom: 1px solid var(--border); transition: background-color 150ms ease; }
+.analysis-group-heading { position: sticky; z-index: 1; top: 0; display: flex; height: 25px; align-items: center; padding: 0 12px; color: var(--faint); border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 10px; font-weight: 650; }
+.analysis-item { display: grid; flex: 0 0 auto; min-width: 0; min-height: 58px; grid-template-columns: 104px minmax(0, 1fr); align-items: stretch; border-bottom: 1px solid var(--border); transition: background-color 150ms ease; }
 .analysis-item:hover, .analysis-item.is-expanded { background: var(--brand-wash); }
 .analysis-item:last-child { border-bottom: 0; }
-.analysis-label { display: flex; min-height: 60px; align-items: flex-start; gap: 8px; padding: 15px 13px; color: var(--muted); border-right: 1px solid var(--border); font-size: 11px; font-weight: 650; line-height: 1.55; white-space: nowrap; }
+.analysis-label { display: flex; min-height: 58px; align-items: flex-start; gap: 8px; padding: 14px 12px; color: var(--muted); font-size: 11px; font-weight: 650; line-height: 1.55; white-space: nowrap; }
 .analysis-label svg { color: var(--faint); font-size: 14px; }
 .analysis-item.ready .analysis-label svg { color: var(--brand); }
-.analysis-value { display: grid; min-width: 0; min-height: 60px; grid-template-columns: minmax(0, 1fr) 26px; align-items: start; gap: 6px; padding: 12px 9px 12px 16px; color: var(--text); font-size: 12px; line-height: 1.72; }
+.analysis-value { display: grid; min-width: 0; min-height: 58px; grid-template-columns: minmax(0, 1fr) 26px; align-items: start; gap: 6px; padding: 11px 9px 11px 15px; color: var(--text); font-size: 12px; line-height: 1.72; }
 .analysis-main { display: grid; min-width: 0; gap: 9px; }
 .analysis-main.has-palette { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
 .analysis-text { display: -webkit-box; min-width: 0; max-width: 76ch; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }

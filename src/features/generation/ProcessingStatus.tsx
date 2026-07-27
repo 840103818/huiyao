@@ -10,6 +10,7 @@ interface ProcessingStatusProps {
   totalItems?: number;
   firstTokenMs?: number;
   languageReady?: { zh: boolean; en: boolean; negative?: boolean };
+  compact?: boolean;
 }
 
 const stageLabels = {
@@ -27,6 +28,7 @@ export function ProcessingStatus({
   totalItems,
   firstTokenMs,
   languageReady,
+  compact = false,
 }: ProcessingStatusProps) {
   const labels = stageLabels[kind];
   const activeIndex = getActiveIndex(state, requestStarted, receivedCharacters);
@@ -34,23 +36,29 @@ export function ProcessingStatus({
   const waitingText = getWaitingText(state, activeIndex, elapsedMs);
 
   return (
-    <div className="processing-status" data-state={state} role="status" aria-live="polite">
+    <div className={`processing-status ${compact ? "is-compact" : ""}`} data-state={state} role="status" aria-live="polite">
       <div className="processing-status-head">
         <span className="processing-current"><i aria-hidden="true" />{statusText}</span>
         <time>{formatElapsed(elapsedMs)}</time>
       </div>
-      <ol className="processing-stages" aria-label={kind === "generation" ? "生成进度阶段" : "优化进度阶段"}>
-        {labels.map((label, index) => (
-          <li
-            key={label}
-            className={index < activeIndex || state === "complete" ? "is-done" : index === activeIndex ? "is-active" : ""}
-            aria-current={index === activeIndex && state !== "complete" ? "step" : undefined}
-          >
-            <i aria-hidden="true" />
-            <span>{label}</span>
-          </li>
-        ))}
-      </ol>
+      {compact ? (
+        <div className="processing-progress" aria-label={`${kind === "generation" ? "生成" : "优化"}阶段：${statusText}`}>
+          <span style={{ width: `${state === "complete" ? 100 : (activeIndex + 1) / labels.length * 100}%` }} />
+        </div>
+      ) : (
+        <ol className="processing-stages" aria-label={kind === "generation" ? "生成进度阶段" : "优化进度阶段"}>
+          {labels.map((label, index) => (
+            <li
+              key={label}
+              className={index < activeIndex || state === "complete" ? "is-done" : index === activeIndex ? "is-active" : ""}
+              aria-current={index === activeIndex && state !== "complete" ? "step" : undefined}
+            >
+              <i aria-hidden="true" />
+              <span>{label}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="processing-facts">
         {firstTokenMs !== undefined ? <span>首字 {firstTokenMs} 毫秒</span> : null}
         {receivedCharacters > 0 ? <span>已接收 {receivedCharacters.toLocaleString("zh-CN")} 字符</span> : null}

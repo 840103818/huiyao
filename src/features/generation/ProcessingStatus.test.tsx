@@ -20,4 +20,12 @@ describe("ProcessingStatus", () => {
     expect(screen.getByText("测定 4/10 项")).toBeInTheDocument();
     expect(screen.getByText("首字 680 毫秒")).toBeInTheDocument();
   });
+
+  it("uses a compact factual progress strip over the image canvas", () => {
+    const { container } = render(<ProcessingStatus compact kind="generation" state="streaming" elapsedMs={2_400} receivedCharacters={321} completedItems={4} totalItems={10} />);
+    expect(container.querySelector(".processing-status")).toHaveClass("is-compact");
+    expect(screen.queryByRole("list", { name: "生成进度阶段" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("生成阶段：实时解析")).toBeInTheDocument();
+    expect(screen.getByText("已接收 321 字符")).toBeInTheDocument();
+  });
 });

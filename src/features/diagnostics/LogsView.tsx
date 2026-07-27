@@ -65,15 +65,19 @@ export function LogsView({ requestFilter }: LogsViewProps) {
           <div className={counts.error ? "has-error" : ""}><span>错误</span><strong>{counts.error}</strong></div>
         </section>
         <section className="log-toolbar">
-          <Input.Search value={query} onChange={setQuery} prefix={<IconSearch />} allowClear placeholder="搜索事件、错误码或请求 ID" aria-label="搜索运行日志" />
-          <Select value={category} onChange={setCategory} aria-label="按类别筛选" options={categoryOptions} />
-          <Select value={level} onChange={setLevel} aria-label="按级别筛选" options={levelOptions} />
-          <Button icon={<IconRefresh />} loading={loading} onClick={() => void refresh()}>刷新</Button>
-          <label className="live-refresh"><Switch size="small" checked={live} onChange={setLive} />实时刷新</label>
-          <Button icon={<IconDownload />} disabled={!filtered.length} onClick={() => void handleExport()}>导出</Button>
-          <Popconfirm title="清空全部运行日志？" content="此操作不可撤销。" okText="清空" cancelText="取消" onOk={handleClear} disabled={!logs.length}>
-            <Button status="danger" icon={<IconDelete />} disabled={!logs.length}>清空</Button>
-          </Popconfirm>
+          <div className="log-filter-group">
+            <Input.Search value={query} onChange={setQuery} prefix={<IconSearch />} allowClear placeholder="搜索事件、错误码或请求 ID" aria-label="搜索运行日志" />
+            <Select value={category} onChange={setCategory} aria-label="按类别筛选" options={categoryOptions} />
+            <Select value={level} onChange={setLevel} aria-label="按级别筛选" options={levelOptions} />
+          </div>
+          <div className="log-action-group">
+            <Button icon={<IconRefresh />} loading={loading} onClick={() => void refresh()}>刷新</Button>
+            <label className="live-refresh"><Switch size="small" checked={live} onChange={setLive} />实时刷新</label>
+            <Button icon={<IconDownload />} disabled={!filtered.length} onClick={() => void handleExport()}>导出</Button>
+            <Popconfirm title="清空全部运行日志？" content="此操作不可撤销。" okText="清空" cancelText="取消" onOk={handleClear} disabled={!logs.length}>
+              <Button status="danger" icon={<IconDelete />} disabled={!logs.length}>清空</Button>
+            </Popconfirm>
+          </div>
         </section>
         <section className="log-table">
           <Spin loading={loading} block>

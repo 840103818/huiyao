@@ -69,6 +69,7 @@ import {
 } from "../infrastructure/tauri";
 import { prepareImage, revokePreparedImagePreview } from "../features/image-input/image";
 import { createStreamPrinterController, parseStreamingResult } from "../features/generation/stream";
+import previewImage from "../assets/huiyao-mark.png";
 import type {
   CommandFailure,
   DetailLevel,
@@ -111,7 +112,8 @@ const DEFAULT_SETTINGS: PublicSettings = {
 const EMPTY_BATCH_PROGRESS: BatchProgress = { total: 0, ready: 0, queued: 0, running: 0, completed: 0, failed: 0, paused: 0 };
 
 export default function App() {
-  const workspaceUi = isDesktopApp() || (import.meta.env.DEV && new URLSearchParams(window.location.search).has("workspace-preview"));
+  const previewMode = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("workspace-preview") : null;
+  const workspaceUi = isDesktopApp() || Boolean(previewMode);
   const [messageApi, messageContext] = Message.useMessage();
   const messageApiRef = useRef(messageApi);
   messageApiRef.current = messageApi;
@@ -270,14 +272,56 @@ export default function App() {
       const now = new Date().toISOString();
       const previewProject: Project = { id: "preview-project", title: "产品摄影", taskCount: 3, completedCount: 1, createdAt: now, updatedAt: now };
       const previewPreset: ReversePreset = { id: "preview-preset", title: "商业产品", builtIn: true, snapshot: { requirements: "突出材质、布光和商业陈列关系", outputLanguage: "chinese", detailLevel: "expert", autoOptimizeRequirements: "" }, createdAt: now, updatedAt: now };
+      const previewResult: ReverseResult = {
+        analysis: {
+          subject: "曜光银色金属香氛瓶置于深色石材台面，瓶身轮廓清晰，标签区域保持无品牌化处理。",
+          scene: "中性深灰无缝背景，台面干净，留有充足商业排版空间。",
+          composition: "主体居中略偏下，采用稳定三分构图，画面留白均衡。",
+          lighting: "大型柔光箱从左上方形成柔和主光，右侧弱补光勾勒金属边缘。",
+          tonality: "低调曝光与克制高光，暗部保留层次，金属反射不过曝。",
+          colors: "冷灰、银白与少量紫色点缀，整体保持中性商业色调。",
+          palette: ["#17171a", "#55545b", "#a9a7b2", "#f1f0f4"],
+          materials: "拉丝金属、磨砂玻璃与细腻石材形成软硬材质对比。",
+          style: "高端商业产品摄影，精密、克制、现代。",
+          camera: "85mm 中长焦视角，f/8 景深，低 ISO，机位与产品视线齐平。",
+          postProcessing: "控制高光边缘，轻微冷色调色，保留真实材质纹理。",
+        },
+        prompts: {
+          zh: "高端商业产品摄影，一只无品牌的银色金属香氛瓶置于深灰石材台面，柔和左侧主光与右侧轮廓补光，低调曝光，冷灰银白色调，真实拉丝金属与磨砂玻璃质感，85mm 中长焦，f/8，画面干净克制。",
+          en: "Premium commercial product photography of an unbranded silver fragrance bottle on a dark gray stone surface, soft key light from the upper left, subtle rim light, restrained highlights, cool neutral palette, realistic brushed metal and frosted glass, 85mm lens, f/8.",
+        },
+        metadata: { model: "gpt-4.1-mini", elapsedMs: 6_400, totalTokens: 1268, createdAt: now },
+      };
+      const previewTasks: ProjectTask[] = [
+        { id: "preview-1", projectId: previewProject.id, title: "金属香氛瓶", fileName: "product-01.jpg", status: "ready", favorite: true, tags: ["商业", "静物"], originalImage: { fileName: "product-01.jpg", mimeType: "image/jpeg", size: 2_400_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 0, createdAt: now, updatedAt: now },
+        { id: "preview-2", projectId: previewProject.id, title: "玻璃护肤套装", fileName: "product-02.jpg", status: "completed", favorite: false, tags: ["棚拍"], originalImage: { fileName: "product-02.jpg", mimeType: "image/jpeg", size: 3_100_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 1, result: previewResult, createdAt: now, updatedAt: now },
+        { id: "preview-3", projectId: previewProject.id, title: "织物材质测试", fileName: "product-03.webp", status: "failed", favorite: false, tags: [], errorCode: "timeout", errorMessage: "请求超时", queuePosition: 2, createdAt: now, updatedAt: now },
+      ];
       setProjects([previewProject, { ...previewProject, id: "preview-archive", title: "灵感归档", taskCount: 12, completedCount: 12 }]);
       setPresets([previewPreset]); setActivePresetId(previewPreset.id); setActiveProjectId(previewProject.id);
-      setProjectTasks([
-        { id: "preview-1", projectId: previewProject.id, title: "金属香氛瓶", fileName: "product-01.jpg", status: "ready", favorite: true, tags: ["商业", "静物"], originalImage: { fileName: "product-01.jpg", mimeType: "image/jpeg", size: 2_400_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 0, createdAt: now, updatedAt: now },
-        { id: "preview-2", projectId: previewProject.id, title: "玻璃护肤套装", fileName: "product-02.jpg", status: "completed", favorite: false, tags: ["棚拍"], originalImage: { fileName: "product-02.jpg", mimeType: "image/jpeg", size: 3_100_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 1, createdAt: now, updatedAt: now },
-        { id: "preview-3", projectId: previewProject.id, title: "织物材质测试", fileName: "product-03.webp", status: "failed", favorite: false, tags: [], errorCode: "timeout", errorMessage: "请求超时", queuePosition: 2, createdAt: now, updatedAt: now },
-      ]);
+      setProjectTasks(previewTasks);
       setProjectTaskTotal(3); setBatchProgress({ total: 3, ready: 1, queued: 0, running: 0, completed: 1, failed: 1, paused: 0 });
+      if (previewMode === "task" || previewMode === "streaming") {
+        const previewInfo: ImageInfo = { name: "studio-product.jpg", width: 3000, height: 2000, size: 2_400_000, mimeType: "image/jpeg" };
+        setActiveTaskId("preview-2");
+        setDisplayImage(previewImage);
+        setDisplayImageInfo(previewInfo);
+        setImage({ ...previewInfo, previewUrl: previewImage, modelDataUrl: previewImage, thumbnail: previewImage });
+        setResult(previewMode === "streaming" ? {
+          ...previewResult,
+          analysis: { ...previewResult.analysis, lighting: "", tonality: "", colors: "", materials: "", style: "", camera: "", postProcessing: "" },
+          prompts: { zh: "高端商业产品摄影，一只无品牌的银色金属香氛瓶", en: "" },
+        } : previewResult);
+        setIsFinalResult(previewMode === "task");
+        setGenerationState(previewMode === "streaming" ? "streaming" : "complete");
+        setElapsedMs(6_400);
+        setFirstTokenMs(820);
+        setReceivedCharacters(previewMode === "streaming" ? 186 : 0);
+        if (previewMode === "streaming") {
+          requestStartedAtRef.current = Date.now() - 6_400;
+          setInteractionId("preview-stream");
+        }
+      }
     }
   }, []);
 
@@ -1210,7 +1254,6 @@ export default function App() {
         elapsedMs={elapsedMs}
         projectTitle={projects.find((item) => item.id === activeProjectId)?.title}
         taskTitle={projectTasks.find((item) => item.id === activeTaskId)?.title}
-        queueProgress={batchProgress.total ? `${batchProgress.completed}/${batchProgress.total}` : undefined}
         onToggleSidebar={() => compactHistory ? setHistoryDrawerOpen(true) : setSidebarCollapsed((value) => !value)}
         onNavigate={navigate}
       />
@@ -1384,10 +1427,12 @@ export default function App() {
           {firstTokenMs ? <span><IconClockCircle />首字：<strong>{firstTokenMs} 毫秒</strong></span> : null}
           {isFinalResult && result?.metadata.totalTokens ? <span><IconStorage />令牌数：<strong>{result.metadata.totalTokens.toLocaleString()}</strong></span> : null}
           {elapsedMs > 0 ? <span><IconClockCircle />耗时：<strong>{statusTime}</strong></span> : null}
-          <span className={`status-saved ${generationStateClass(generationState)}`}>
-            {generationState === "complete" ? <IconCheckCircle /> : <IconClockCircle />}
-            {generationStateLabel(generationState)}
-          </span>
+          {generationState !== "idle" ? (
+            <span className={`status-saved ${generationStateClass(generationState)}`}>
+              {generationState === "complete" ? <IconCheckCircle /> : <IconClockCircle />}
+              {generationStateLabel(generationState)}
+            </span>
+          ) : null}
           {batchProgress.total ? <span className="queue-status">队列：<strong>{batchProgress.completed}/{batchProgress.total}</strong></span> : null}
         </footer>
       ) : null}

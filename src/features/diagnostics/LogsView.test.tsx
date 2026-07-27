@@ -48,4 +48,11 @@ describe("LogsView", () => {
     await waitFor(() => expect(screen.queryByText("app_started")).not.toBeInTheDocument());
     expect(screen.getByText("request_failed")).toBeInTheDocument();
   });
+
+  it("keeps filters and log actions in separate stable toolbar groups", async () => {
+    const { container } = render(<LogsView />);
+    await screen.findByText("request_failed");
+    expect(container.querySelector(".log-filter-group")).toContainElement(screen.getByLabelText("搜索运行日志"));
+    expect(container.querySelector(".log-action-group")).toContainElement(screen.getByRole("button", { name: "刷新" }));
+  });
 });

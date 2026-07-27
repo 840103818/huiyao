@@ -25,6 +25,7 @@ export function SettingsView({ settings, onSaved, onThemeChange, onDirtyChange, 
   const [originalStats, setOriginalStats] = useState({ count: 0, totalBytes: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [clearingOriginals, setClearingOriginals] = useState(false);
+  const [activeSection, setActiveSection] = useState("settings-model");
 
   const loadOriginalStats = async () => {
     setStatsLoading(true);
@@ -33,6 +34,22 @@ export function SettingsView({ settings, onSaved, onThemeChange, onDirtyChange, 
     finally { setStatsLoading(false); }
   };
   useEffect(() => { void loadOriginalStats(); }, []);
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>(".settings-form");
+    const sections = Array.from(document.querySelectorAll<HTMLElement>(".settings-section"));
+    if (!root || !sections.length || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+      if (visible?.target.id) setActiveSection(visible.target.id);
+    }, { root, rootMargin: "-8% 0px -70%", threshold: [0.1, 0.35, 0.6] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  const openSection = (id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const initialValues: SettingsInput = {
     baseUrl: settings.baseUrl, model: settings.model, timeoutSeconds: settings.timeoutSeconds,
@@ -94,10 +111,10 @@ export function SettingsView({ settings, onSaved, onThemeChange, onDirtyChange, 
         </header>
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="设置分类">
-            <button type="button" onClick={() => document.getElementById("settings-model")?.scrollIntoView({ behavior: "smooth" })}><IconLink /><span>模型服务</span></button>
-            <button type="button" onClick={() => document.getElementById("settings-queue")?.scrollIntoView({ behavior: "smooth" })}><IconSave /><span>任务队列</span></button>
-            <button type="button" onClick={() => document.getElementById("settings-storage")?.scrollIntoView({ behavior: "smooth" })}><IconStorage /><span>原图存储</span></button>
-            <button type="button" onClick={() => document.getElementById("settings-appearance")?.scrollIntoView({ behavior: "smooth" })}><IconDesktop /><span>外观</span></button>
+            <button className={activeSection === "settings-model" ? "is-active" : undefined} aria-current={activeSection === "settings-model" ? "page" : undefined} type="button" onClick={() => openSection("settings-model")}><IconLink /><span>模型服务</span></button>
+            <button className={activeSection === "settings-queue" ? "is-active" : undefined} aria-current={activeSection === "settings-queue" ? "page" : undefined} type="button" onClick={() => openSection("settings-queue")}><IconSave /><span>任务队列</span></button>
+            <button className={activeSection === "settings-storage" ? "is-active" : undefined} aria-current={activeSection === "settings-storage" ? "page" : undefined} type="button" onClick={() => openSection("settings-storage")}><IconStorage /><span>原图存储</span></button>
+            <button className={activeSection === "settings-appearance" ? "is-active" : undefined} aria-current={activeSection === "settings-appearance" ? "page" : undefined} type="button" onClick={() => openSection("settings-appearance")}><IconDesktop /><span>外观</span></button>
           </nav>
         <Form<SettingsInput>
           className="settings-form"

@@ -20,4 +20,17 @@ describe("Toolbar", () => {
     expect(screen.getByRole("button", { name: "返回工作台" })).toBeInTheDocument();
     expect(screen.getByText("系统设置")).toBeInTheDocument();
   });
+
+  it("hides redundant idle status and shows only an active real state", () => {
+    const { rerender } = render(
+      <Toolbar sidebarCollapsed={false} compactHistory={false} view="workspace" generationState="idle" elapsedMs={0} projectTitle="产品摄影" taskTitle="项目概览" onToggleSidebar={vi.fn()} onNavigate={vi.fn()} />,
+    );
+    expect(screen.queryByText("图片反推")).not.toBeInTheDocument();
+
+    rerender(
+      <Toolbar sidebarCollapsed={false} compactHistory={false} view="workspace" generationState="streaming" elapsedMs={1_240} projectTitle="产品摄影" taskTitle="金属香氛瓶" onToggleSidebar={vi.fn()} onNavigate={vi.fn()} />,
+    );
+    expect(screen.getByText("流式解析")).toBeInTheDocument();
+    expect(screen.getByText("1.2 秒")).toBeInTheDocument();
+  });
 });

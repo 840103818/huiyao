@@ -31,9 +31,11 @@ Vite 固定使用 `127.0.0.1:1420`。配置只来自 `vite.config.ts`，不要�
 
 ```text
 http://127.0.0.1:1420/?workspace-preview=1
+http://127.0.0.1:1420/?workspace-preview=task
+http://127.0.0.1:1420/?workspace-preview=streaming
 ```
 
-该预览只提供本地项目、任务和预设测试数据，不调用模型、Keychain、SQLite 或原图接口。
+三个入口依次用于项目概览、完整任务结果和生成中间态。预览只在开发构建中生效，仅提供本地脱敏项目、任务、预设和结果测试数据，不调用模型、Keychain、SQLite 或原图接口。
 
 ## 开发流程
 
