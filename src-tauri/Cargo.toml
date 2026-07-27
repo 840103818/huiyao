@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "A macOS image reverse prompt workbench"
 authors = ["Huiyao Studio"]
 edition = "2021"
+rust-version = "1.95"
 
 [features]
 default = ["custom-protocol"]
