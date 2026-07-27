@@ -38,3 +38,7 @@
 ## 模型兼容性
 
 模型服务必须兼容 `{Base URL}/chat/completions`，图片请求需支持 `image_url` Data URL。绘钥优先使用 SSE 和 `stream_options.include_usage`，不兼容时依次重试普通流式和非流式响应；兼容回退不会伪造逐字动画。
+
+## 原生界面语言
+
+macOS 应用包以简体中文声明原生界面语言。WebView 进程异常时由系统提供的恢复按钮显示“重新载入”，与应用内中文界面保持一致。
