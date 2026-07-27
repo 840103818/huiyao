@@ -24,6 +24,11 @@ fn db_error(_error: impl ToString) -> CommandError {
     CommandError::new("workspace_database", "本地工作区数据库操作失败")
 }
 
+fn nonnegative_u64(row: &Row<'_>, index: usize) -> rusqlite::Result<u64> {
+    let value = row.get::<_, i64>(index)?;
+    u64::try_from(value).map_err(|_| rusqlite::Error::IntegralValueOutOfRange(index, value))
+}
+
 fn open(path: &Path) -> Result<Connection, CommandError> {
     let connection = Connection::open(path).map_err(db_error)?;
     connection
@@ -200,8 +205,8 @@ pub fn list_projects(path: &Path) -> Result<Vec<Project>, CommandError> {
                 title: row.get(1)?,
                 created_at: row.get(2)?,
                 updated_at: row.get(3)?,
-                task_count: row.get(4)?,
-                completed_count: row.get(5)?,
+                task_count: nonnegative_u64(row, 4)?,
+                completed_count: nonnegative_u64(row, 5)?,
             })
         })
         .map_err(db_error)?;
@@ -259,6 +264,10 @@ pub fn list_tasks(
     }
     let connection = open(path)?;
     let limit = limit.clamp(1, PAGE_LIMIT);
+    let offset_sql = i64::try_from(offset)
+        .map_err(|_| CommandError::new("task_page_invalid", "任务分页偏移量超出范围"))?;
+    let limit_sql = i64::try_from(limit)
+        .map_err(|_| CommandError::new("task_page_invalid", "任务分页数量超出范围"))?;
     let pattern = format!("%{}%", query.trim().replace(['%', '_'], ""));
     let filter_sql = match filter {
         TaskFilter::All => "1=1",
@@ -269,17 +278,20 @@ pub fn list_tasks(
         TaskFilter::OriginalRetained => "t.original_image_json IS NOT NULL",
     };
     let where_sql = format!("t.project_id=?1 AND t.deleted_at IS NULL AND {filter_sql} AND (?2='%%' OR t.title LIKE ?2 OR t.file_name LIKE ?2 OR COALESCE(t.result_json,'') LIKE ?2 OR COALESCE(t.capture_metadata_json,'') LIKE ?2 OR EXISTS(SELECT 1 FROM task_tags tt JOIN tags g ON g.id=tt.tag_id WHERE tt.task_id=t.id AND g.name LIKE ?2))");
-    let total: u64 = connection
+    let total = connection
         .query_row(
             &format!("SELECT COUNT(*) FROM tasks t WHERE {where_sql}"),
             params![project_id, pattern],
-            |row| row.get(0),
+            |row| nonnegative_u64(row, 0),
         )
         .map_err(db_error)?;
     let sql = format!("SELECT t.id,t.project_id,t.title,t.file_name,t.thumbnail,t.image_info_json,t.original_image_json,t.capture_metadata_json,t.status,t.favorite,t.preset_snapshot_json,NULL,t.error_code,t.error_message,t.parent_task_id,t.queue_position,t.created_at,t.updated_at FROM tasks t WHERE {where_sql} ORDER BY t.queue_position ASC,t.created_at DESC LIMIT ?3 OFFSET ?4");
     let mut statement = connection.prepare(&sql).map_err(db_error)?;
     let rows = statement
-        .query_map(params![project_id, pattern, limit, offset], task_from_row)
+        .query_map(
+            params![project_id, pattern, limit_sql, offset_sql],
+            task_from_row,
+        )
         .map_err(db_error)?;
     let mut items = rows.collect::<Result<Vec<_>, _>>().map_err(db_error)?;
     for item in &mut items {
@@ -708,7 +720,7 @@ pub fn permanent_delete(path: &Path, id: &str, kind: &str) -> Result<Vec<String>
                 .query_row(
                     "SELECT COUNT(*) FROM tasks WHERE original_asset_id=?1",
                     params![asset],
-                    |row| row.get::<_, u64>(0),
+                    |row| nonnegative_u64(row, 0),
                 )
                 .unwrap_or(1)
                 == 0
@@ -818,7 +830,7 @@ pub fn batch_progress(path: &Path, project_id: &str) -> Result<BatchProgress, Co
     let mut statement=connection.prepare("SELECT status,COUNT(*) FROM tasks WHERE project_id=?1 AND deleted_at IS NULL GROUP BY status").map_err(db_error)?;
     for row in statement
         .query_map(params![project_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, u64>(1)?))
+            Ok((row.get::<_, String>(0)?, nonnegative_u64(row, 1)?))
         })
         .map_err(db_error)?
     {
@@ -1227,6 +1239,12 @@ mod tests {
             .unwrap_err()
             .code,
             "task_query_invalid"
+        );
+        assert_eq!(
+            list_tasks(&path, DEFAULT_PROJECT_ID, TaskFilter::All, "", u64::MAX, 50)
+                .unwrap_err()
+                .code,
+            "task_page_invalid"
         );
         let snapshot = ReversePresetSnapshot {
             requirements: "x".repeat(MAX_REQUIREMENTS_CHARS + 1),
