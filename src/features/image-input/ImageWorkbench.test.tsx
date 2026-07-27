@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ImageWorkbench } from "./ImageWorkbench";
 import type { PreparedImage } from "../../shared/contracts";
@@ -55,6 +55,7 @@ function renderWorkbench(onZoomChange = vi.fn()) {
 
 describe("ImageWorkbench", () => {
   it("opens the body-level image viewer, hides native chrome, and restores it on Escape", async () => {
+    vi.useFakeTimers();
     bridgeMocks.setViewerChromeHidden.mockClear();
     const { container } = renderWorkbench();
     fireEvent.doubleClick(screen.getByTitle("双击放大查看"));
@@ -65,9 +66,12 @@ describe("ImageWorkbench", () => {
     expect(bridgeMocks.setViewerChromeHidden).toHaveBeenCalledWith(true);
 
     fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "图片查看器" })).toHaveClass("is-closing");
+    act(() => vi.advanceTimersByTime(150));
     expect(screen.queryByRole("dialog", { name: "图片查看器" })).not.toBeInTheDocument();
     await Promise.resolve();
     expect(bridgeMocks.setViewerChromeHidden).toHaveBeenLastCalledWith(false);
+    vi.useRealTimers();
   });
 
   it("maps trackpad pinch input to pointer-centered zoom without hijacking ordinary scrolling", () => {
@@ -128,7 +132,7 @@ describe("ImageWorkbench", () => {
     expect(screen.getByAltText("待分析图片")).toHaveStyle({ transform: "translate3d(0px, 120px, 0) scale(2)" });
   });
 
-  it("uses ordinary trackpad scrolling to pan a zoomed tall image in the viewer", () => {
+  it("uses ordinary trackpad scrolling to pan a zoomed tall image in the viewer", async () => {
     render(
       <ImageWorkbench
         image={tallImage} displayImage={tallImage.previewUrl} imageInfo={tallImage} requirements=""
@@ -142,11 +146,11 @@ describe("ImageWorkbench", () => {
     const viewer = screen.getByRole("dialog", { name: "图片查看器" });
     const canvas = viewer.querySelector<HTMLElement>(".viewer-canvas")!;
     Object.defineProperties(canvas, { clientWidth: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 600 } });
-    const zoomIn = viewer.querySelector<HTMLButtonElement>('[aria-label="放大"]')!;
-    for (let index = 0; index < 4; index += 1) fireEvent.click(zoomIn);
+    fireEvent.click(viewer.querySelector<HTMLButtonElement>('[aria-label="实际大小 100%"]')!);
 
     fireEvent.wheel(canvas, { deltaX: 0, deltaY: 120 });
-    expect(screen.getByAltText("sample-tall.png")).toHaveStyle({ transform: "translate3d(0px, -120px, 0) scale(2)" });
+    await act(() => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())));
+    expect(viewer.querySelector(".viewer-image-frame")).toHaveStyle({ transform: "translate3d(0px, -120px, 0) scale(1)" });
   });
 
   it("changes language and detail from full-width segmented controls", () => {
