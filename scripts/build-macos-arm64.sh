@@ -8,6 +8,7 @@ FRONTEND_DIST="$(mktemp -d "${TMPDIR:-/tmp}/huiyao-build.XXXXXX")"
 trap 'rm -rf "$FRONTEND_DIST"' EXIT
 
 cd "$ROOT_DIR"
+HUIYAO_RUSTC="$RUST_TOOLCHAIN_BIN/rustc" "$ROOT_DIR/scripts/verify-rust-toolchain.sh"
 
 DEFAULT_FEATURES="$({
   cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1

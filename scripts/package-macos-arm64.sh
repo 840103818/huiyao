@@ -46,6 +46,10 @@ for command in node npm rustup cargo rustc ld64.lld ditto xattr codesign plutil 
 done
 
 cd "$ROOT_DIR"
+RUST_TOOLCHAIN_BIN="${HOME}/.rustup/toolchains/stable-aarch64-apple-darwin/bin"
+[[ -x "$RUST_TOOLCHAIN_BIN/rustc" ]] \
+  || fail "未找到 rustup stable 工具链，请先运行 rustup toolchain install stable。"
+HUIYAO_RUSTC="$RUST_TOOLCHAIN_BIN/rustc" "$ROOT_DIR/scripts/verify-rust-toolchain.sh"
 
 if [[ ! -x "node_modules/.bin/tauri" ]]; then
   printf '\n==> 未检测到项目依赖，正在执行 npm ci\n'
@@ -53,7 +57,7 @@ if [[ ! -x "node_modules/.bin/tauri" ]]; then
 fi
 
 [[ -x "node_modules/.bin/tauri" ]] || fail "Tauri CLI 不可用，请检查 npm ci 输出。"
-rustup target list --installed | grep -qx "$TARGET_TRIPLE" \
+rustup target list --toolchain stable --installed | grep -qx "$TARGET_TRIPLE" \
   || fail "缺少 Rust 目标 $TARGET_TRIPLE，请先运行 rustup target add $TARGET_TRIPLE。"
 
 VERSION="$(node -p "require('./package.json').version")"

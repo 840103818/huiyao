@@ -17,7 +17,7 @@ git diff --check
 npm run package:macos
 ```
 
-脚本使用 Apple Silicon 目标和 `ld64.lld` 构建，执行 ad-hoc 签名，并将结果复制到：
+脚本使用官方 `rustup stable` 的 Rust 1.95 或以上工具链、Apple Silicon 目标和 `ld64.lld` 构建，执行 ad-hoc 签名，并将结果复制到：
 
 ```text
 artifacts/release/绘钥.app

@@ -4,14 +4,17 @@
 
 - Apple Silicon Mac，macOS 12 或以上。
 - Node.js `>=20.19.0`，npm `>=10`。
-- Rust stable、`aarch64-apple-darwin` 目标和 `rustfmt`。
+- Rust `>=1.95.0`、`aarch64-apple-darwin` 目标和 `rustfmt`。
 - 生产打包需要 `ld64.lld`、Xcode Command Line Tools 和 Tauri 系统依赖。
 
 ```bash
 npm ci
+rustup update stable
 rustup target add aarch64-apple-darwin
 rustup component add rustfmt
 ```
+
+`libsqlite3-sys 0.38` 使用 Rust 1.95 稳定的 `cfg_select!`。日常检查读取当前 `PATH` 中的工具链；macOS 发布脚本固定使用官方 `rustup stable`，并在构建前检查版本，避免 Homebrew 标准库的部署目标高于 macOS 12。运行 `rustup run stable rustc --version` 可确认实际发布版本。
 
 仓库级 `.npmrc` 固定使用 npm 官方源。`npm run verify:lockfile` 会拒绝锁文件中的第三方下载地址或缺少 `integrity` 的下载项；升级依赖后必须先执行该校验，不要提交由个人镜像生成的 `resolved` 地址。
 
