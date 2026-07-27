@@ -41,12 +41,15 @@ trap 'status=$?; printf "打包失败（退出码 %d，脚本第 %d 行）。\n"
 [[ "$(uname -s)" == "Darwin" ]] || fail "该脚本只能在 macOS 上运行。"
 [[ "$(uname -m)" == "arm64" ]] || fail "当前机器不是 Apple Silicon，无法构建 arm64 安装包。"
 
-for command in node npm cargo rustc ld64.lld ditto xattr codesign plutil lipo hdiutil; do
+for command in node npm rustup cargo rustc ld64.lld ditto xattr codesign plutil lipo hdiutil; do
   require_command "$command"
 done
 
 cd "$ROOT_DIR"
-"$ROOT_DIR/scripts/verify-rust-toolchain.sh"
+RUST_TOOLCHAIN_BIN="${HOME}/.rustup/toolchains/stable-aarch64-apple-darwin/bin"
+[[ -x "$RUST_TOOLCHAIN_BIN/rustc" ]] \
+  || fail "未找到 rustup stable 工具链，请先运行 rustup toolchain install stable。"
+HUIYAO_RUSTC="$RUST_TOOLCHAIN_BIN/rustc" "$ROOT_DIR/scripts/verify-rust-toolchain.sh"
 
 if [[ ! -x "node_modules/.bin/tauri" ]]; then
   printf '\n==> 未检测到项目依赖，正在执行 npm ci\n'
@@ -54,9 +57,8 @@ if [[ ! -x "node_modules/.bin/tauri" ]]; then
 fi
 
 [[ -x "node_modules/.bin/tauri" ]] || fail "Tauri CLI 不可用，请检查 npm ci 输出。"
-TARGET_LIBDIR="$(rustc --print target-libdir --target "$TARGET_TRIPLE" 2>/dev/null || true)"
-[[ -n "$TARGET_LIBDIR" && -d "$TARGET_LIBDIR" ]] \
-  || fail "当前 Rust 工具链缺少目标 $TARGET_TRIPLE；rustup 用户请运行 rustup target add $TARGET_TRIPLE。"
+rustup target list --toolchain stable --installed | grep -qx "$TARGET_TRIPLE" \
+  || fail "缺少 Rust 目标 $TARGET_TRIPLE，请先运行 rustup target add $TARGET_TRIPLE。"
 
 VERSION="$(node -p "require('./package.json').version")"
 BUILD_ROOT="$TARGET_DIR/$TARGET_TRIPLE/release/bundle"

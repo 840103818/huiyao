@@ -3,11 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${CARGO_TARGET_DIR:-${TMPDIR:-/tmp}/huiyao-target-${UID}}"
+RUST_TOOLCHAIN_BIN="${HOME}/.rustup/toolchains/stable-aarch64-apple-darwin/bin"
 FRONTEND_DIST="$(mktemp -d "${TMPDIR:-/tmp}/huiyao-build.XXXXXX")"
 trap 'rm -rf "$FRONTEND_DIST"' EXIT
 
 cd "$ROOT_DIR"
-"$ROOT_DIR/scripts/verify-rust-toolchain.sh"
+HUIYAO_RUSTC="$RUST_TOOLCHAIN_BIN/rustc" "$ROOT_DIR/scripts/verify-rust-toolchain.sh"
 
 DEFAULT_FEATURES="$({
   cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1
@@ -31,6 +32,7 @@ printf 'Building frontend in %s\n' "$FRONTEND_DIST"
 npm run build -- --outDir "$FRONTEND_DIST" --emptyOutDir
 npm run verify:frontend-dist -- "$FRONTEND_DIST"
 
+PATH="${RUST_TOOLCHAIN_BIN}:${PATH}" \
 CARGO_TARGET_DIR="$TARGET_DIR" \
 CARGO_PROFILE_RELEASE_STRIP="${CARGO_PROFILE_RELEASE_STRIP:-none}" \
 RUSTFLAGS="${RUSTFLAGS:--C link-arg=-fuse-ld=lld}" \
