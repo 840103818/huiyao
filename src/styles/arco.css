@@ -1,9 +1,15 @@
-button, input, textarea { font-family: inherit; }
 .arco-btn, .arco-input, .arco-select-view, .arco-textarea, .arco-input-number { border-radius: 6px; }
-.arco-btn { font-weight: 570; transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease; }
+.arco-btn { min-height: 32px; font-weight: 560; transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease; }
 .arco-btn:not(.arco-btn-disabled):active { transform: translateY(1px); }
-.arco-btn:focus-visible, .arco-input-wrapper:focus-within, .arco-textarea:focus, .arco-radio-button:focus-visible { box-shadow: 0 0 0 3px var(--focus-ring); }
-.arco-btn-secondary:not(.arco-btn-disabled) { background: var(--surface-2); border-color: var(--border); }
+.arco-btn:focus-visible, .arco-input-wrapper:focus-within, .arco-textarea:focus, .arco-radio-button:focus-visible, .arco-select-view:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+.arco-btn-secondary:not(.arco-btn-disabled) { border-color: var(--border); background: var(--surface-2); }
 .arco-trigger-popup, .arco-modal, .arco-drawer, .arco-message { color: var(--text); }
+.arco-trigger-popup, .arco-popconfirm-popup { z-index: 1100 !important; }
+.arco-modal-wrapper, .arco-drawer-wrapper { z-index: 1050 !important; }
+.arco-modal, .arco-drawer { border: 1px solid var(--border); box-shadow: var(--shadow); }
+.arco-modal-header, .arco-drawer-header { background: var(--surface); }
+.arco-modal-content, .arco-drawer-content { background: var(--surface); }
 .arco-tooltip-content { max-width: 280px; }
-
+.arco-tabs-header-title { font-weight: 580; }
+.arco-tag { font-weight: 550; }
+.arco-empty-description { color: var(--muted); font-size: 12px; }

@@ -115,6 +115,30 @@ mod tests {
             settings.workspace.detail_level,
             crate::models::DetailLevel::Expert
         );
+        assert_eq!(settings.workspace.project_sidebar_width, None);
+        assert_eq!(settings.workspace.input_split_percent, None);
+    }
+
+    #[test]
+    fn workspace_layout_preferences_are_clamped_to_safe_ranges() {
+        let preferences = crate::models::WorkspacePreferences {
+            project_sidebar_width: Some(999.0),
+            input_split_percent: Some(2.0),
+            ..Default::default()
+        }
+        .normalized();
+
+        assert_eq!(preferences.project_sidebar_width, Some(336.0));
+        assert_eq!(preferences.input_split_percent, Some(42.0));
+
+        let invalid = crate::models::WorkspacePreferences {
+            project_sidebar_width: Some(f64::NAN),
+            input_split_percent: Some(f64::INFINITY),
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(invalid.project_sidebar_width, None);
+        assert_eq!(invalid.input_split_percent, None);
     }
 
     #[cfg(unix)]

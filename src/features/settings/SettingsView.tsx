@@ -1,5 +1,5 @@
 import { Alert, Button, Checkbox, Form, Input, InputNumber, Message, Modal, Popconfirm, Radio, Tag } from "@arco-design/web-react";
-import { IconCheckCircle, IconDelete, IconDesktop, IconLeft, IconLink, IconLock, IconMoon, IconSave, IconStorage, IconSun } from "@arco-design/web-react/icon";
+import { IconCheckCircle, IconDelete, IconDesktop, IconLink, IconLock, IconMoon, IconSave, IconStorage, IconSun } from "@arco-design/web-react/icon";
 import { useEffect, useState } from "react";
 import { clearOriginalImages, getErrorMessage, getOriginalStorageStats, saveSettings, testConnection } from "../../infrastructure/tauri";
 import type { PublicSettings, SettingsInput, ThemeMode } from "../../shared/contracts";
@@ -7,14 +7,13 @@ import { formatBytes } from "../image-input/image";
 
 interface SettingsViewProps {
   settings: PublicSettings;
-  onBack: () => void;
   onSaved: (settings: PublicSettings) => void;
   onThemeChange: (theme: ThemeMode) => Promise<void>;
   onDirtyChange: (dirty: boolean) => void;
   onOriginalsCleared?: () => void | Promise<void>;
 }
 
-export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirtyChange, onOriginalsCleared }: SettingsViewProps) {
+export function SettingsView({ settings, onSaved, onThemeChange, onDirtyChange, onOriginalsCleared }: SettingsViewProps) {
   const [message, messageContext] = Message.useMessage();
   const [modal, modalContext] = Modal.useModal();
   const [form] = Form.useForm<SettingsInput>();
@@ -42,8 +41,6 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
     batchConcurrency: settings.batchConcurrency, storageQuotaBytes: settings.storageQuotaBytes,
     progressiveDisclosure: settings.progressiveDisclosure,
   };
-
-  const handleBack = onBack;
 
   const values = async (): Promise<SettingsInput> => {
     const input = { ...(await form.validate()), theme };
@@ -93,17 +90,24 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
       {modalContext}
       <div className="settings-container">
         <header className="page-title-row">
-          <Button shape="circle" type="text" icon={<IconLeft />} onClick={handleBack} aria-label="返回工作台" />
-          <div><span>模型与外观</span><h1>系统设置</h1></div>
+          <div><span>绘钥偏好设置</span><h1>系统设置</h1></div>
         </header>
+        <div className="settings-layout">
+          <nav className="settings-nav" aria-label="设置分类">
+            <button type="button" onClick={() => document.getElementById("settings-model")?.scrollIntoView({ behavior: "smooth" })}><IconLink /><span>模型服务</span></button>
+            <button type="button" onClick={() => document.getElementById("settings-queue")?.scrollIntoView({ behavior: "smooth" })}><IconSave /><span>任务队列</span></button>
+            <button type="button" onClick={() => document.getElementById("settings-storage")?.scrollIntoView({ behavior: "smooth" })}><IconStorage /><span>原图存储</span></button>
+            <button type="button" onClick={() => document.getElementById("settings-appearance")?.scrollIntoView({ behavior: "smooth" })}><IconDesktop /><span>外观</span></button>
+          </nav>
         <Form<SettingsInput>
+          className="settings-form"
           form={form}
           initialValues={initialValues}
           layout="vertical"
           onChange={() => onDirtyChange(true)}
           onSubmit={() => void handleSave()}
         >
-          <section className="settings-section">
+          <section id="settings-model" className="settings-section">
             <header><IconLink /><div><h2>模型服务</h2><p>OpenAI Chat Completions 兼容接口</p></div></header>
             <div className="settings-fields">
               <Form.Item label="Base URL" field="baseUrl" rules={[{ required: true, message: "请输入 Base URL" }, { match: /^https?:\/\/[^\s]+$/i, message: "请输入有效的 HTTP(S) 地址" }]}>
@@ -130,7 +134,7 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
             ) : null}
             <Button icon={<IconLink />} loading={testing} onClick={() => void handleTest()}>测试连接</Button>
           </section>
-          <section className="settings-section">
+          <section id="settings-queue" className="settings-section">
             <header><IconSave /><div><h2>任务队列</h2><p>批处理默认串行；双并发会更快地产生模型费用</p></div></header>
             <Form.Item label="模型并发数" field="batchConcurrency">
               <Radio.Group type="button"><Radio value={1}>串行（推荐）</Radio><Radio value={2}>两个并发</Radio></Radio.Group>
@@ -139,7 +143,7 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
               <Checkbox>默认收起 EXIF、版本管理和诊断等高级信息</Checkbox>
             </Form.Item>
           </section>
-          <section className="settings-section original-storage-section">
+          <section id="settings-storage" className="settings-section original-storage-section">
             <header><IconStorage /><div><h2>原图存储</h2><p>原图使用 Keychain 密钥加密并保存在应用私有目录</p></div></header>
             <div className="storage-metrics" aria-busy={statsLoading}>
               <div><span>已保留原图</span><strong>{statsLoading ? "--" : `${originalStats.count} 张`}</strong></div>
@@ -169,7 +173,7 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
               <Button status="danger" type="outline" icon={<IconDelete />} loading={clearingOriginals} disabled={!originalStats.count}>清理全部原图</Button>
             </Popconfirm>
           </section>
-          <section className="settings-section">
+          <section id="settings-appearance" className="settings-section">
             <header><IconDesktop /><div><h2>外观</h2><p>主题选择会立即保存并同步原生窗口</p></div></header>
             <Radio.Group
               className="theme-options"
@@ -196,6 +200,7 @@ export function SettingsView({ settings, onBack, onSaved, onThemeChange, onDirty
             <Button type="primary" htmlType="submit" size="large" icon={<IconSave />} loading={saving}>保存设置</Button>
           </footer>
         </Form>
+        </div>
       </div>
     </main>
   );

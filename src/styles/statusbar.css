@@ -1,8 +1,9 @@
-.statusbar { display: flex; min-width: 0; align-items: center; gap: 0; padding: 0 14px; border-top: 1px solid var(--border); background: var(--chrome); color: var(--muted); font-size: 9px; }
-.statusbar > span { display: flex; min-width: 0; align-items: center; gap: 4px; white-space: nowrap; }
+.statusbar { display: flex; min-width: 0; align-items: center; padding: 0 14px; border-top: 1px solid var(--border); background: var(--chrome); color: var(--muted); font-size: 10px; }
+.statusbar > span { display: flex; min-width: 0; align-items: center; gap: 5px; white-space: nowrap; }
 .statusbar > span + span { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--border); }
 .statusbar svg { font-size: 12px; }
-.statusbar strong { max-width: 180px; overflow: hidden; color: var(--text); text-overflow: ellipsis; font-weight: 600; }
-.status-saved { margin-left: auto; color: var(--success); }
-.status-saved.working { color: var(--aux); }.status-saved.cancelled { color: var(--warning); }.status-saved.idle { color: var(--faint); }
-
+.statusbar strong { max-width: 190px; overflow: hidden; color: var(--text); text-overflow: ellipsis; font-weight: 600; }
+.status-saved { margin-left: auto !important; color: var(--success); }
+.status-saved.working { color: var(--aux); }
+.status-saved.cancelled { color: var(--warning); }
+.status-saved.idle { color: var(--faint); }

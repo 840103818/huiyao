@@ -25,6 +25,8 @@ export interface WorkspacePreferences {
   detailLevel: DetailLevel;
   fitMode: FitMode;
   resultSplitPercent?: number;
+  projectSidebarWidth?: number;
+  inputSplitPercent?: number;
 }
 
 export interface SettingsInput {

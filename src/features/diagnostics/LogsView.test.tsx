@@ -37,7 +37,7 @@ describe("LogsView", () => {
   beforeEach(() => loadRuntimeLogs.mockResolvedValue(entries));
 
   it("renders model diagnostics and searchable structured details", async () => {
-    render(<LogsView onBack={vi.fn()} />);
+    render(<LogsView />);
     expect(await screen.findByText("request_failed")).toBeInTheDocument();
     expect(screen.getByText("大模型反推请求失败")).toBeInTheDocument();
 
