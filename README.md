@@ -2,7 +2,7 @@
 
 绘钥是使用 React、TypeScript、Arco Design 和 Tauri 2 构建的 macOS 本地数字暗房工作台。它以项目组织图片任务，批量完成摄影测定、双语提示词和提示词精修，并提供加密原图、EXIF、预设、标签、废纸篓、批量导出与运行诊断。界面采用舒适专业的 Apple 数字暗房风格，以图片和结果为主，减少重复边框、空状态占位和运行状态噪声；项目栏、视觉输入和结果区可按当前工作内容调整宽度。
 
-当前版本：`1.0.1`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
+当前版本：`1.0.2`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
 
 ![绘钥工作台](docs/assets/ui/current/workspace-light-1440x900.png)
 
@@ -28,6 +28,20 @@ npm run dev:desktop
 工作台的两条纵向分隔线支持拖动和键盘方向键调整；双击或按 `Home`、`Enter` 恢复默认布局，尺寸会随工作区偏好跨启动保存。
 
 生成时图片区只显示紧凑阶段条、真实耗时和有效进度；完成后阶段条自动收起。空闲状态不会在顶栏和底栏重复显示占位信息。
+
+## 功能预览
+
+选中任务后，视觉输入、摄影测定和提示词保持稳定三栏，提示词操作栏固定在底部：
+
+![完整任务工作台](docs/assets/ui/current/selected-task-light-1440x900.png)
+
+图片查看器支持适应窗口、适应宽度、真实 `1:1`、长图拖动和导航缩略图：
+
+![沉浸式图片查看器](docs/assets/ui/current/image-viewer-dark-1440x900.png)
+
+窄窗口使用项目 Drawer，设置与日志继续保持同一套明暗主题和紧凑工具栏：
+
+![窄屏项目抽屉](docs/assets/ui/current/project-drawer-dark-1120x720.png)
 
 ## 常用命令
 

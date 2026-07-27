@@ -13,5 +13,7 @@
 - `settings-http-confirm-light-1440x900.png`：明文 HTTP 风险确认。
 - `generation-stream-light-1440x900.png`、`generation-stream-dark-1440x900.png`、`generation-stream-dark-1120x720.png`：双尺寸、双主题下的紧凑反推阶段条和 SSE 打印状态。
 - `prompt-optimization-light-1440x900.png`、`prompt-optimization-dark-1120x720.png`：双尺寸、双主题下的提示词优化流式状态。
+- `image-viewer-light-1440x900.png`、`image-viewer-dark-1440x900.png`、`image-viewer-light-1120x720.png`、`image-viewer-dark-1120x720.png`：查看器双尺寸、双主题基线。
+- `image-viewer-long-navigator-dark-1120x720.png`：长图放大、平移边界和导航缩略图状态。
 
 其余图片记录视觉输入、流式生成、摄影测定、提示词优化、版本比较、EXIF、废纸篓和图片查看器等关键交互。页面样式变化影响对应状态时必须同步覆盖。
