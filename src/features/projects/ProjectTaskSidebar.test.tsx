@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectTask } from "../../shared/contracts";
 import { ProjectTaskSidebar } from "./ProjectTaskSidebar";
@@ -43,5 +43,15 @@ describe("ProjectTaskSidebar", () => {
     renderSidebar({ tasks: [{ ...task, status: "completed", result: undefined }] });
     fireEvent.click(screen.getByRole("button", { name: "棚拍产品 操作" }));
     expect(await screen.findByText("导出任务")).not.toHaveClass("arco-menu-disabled");
+  });
+
+  it("shows batch tools only after selecting tasks while keeping import visible", () => {
+    renderSidebar();
+    expect(screen.queryByLabelText("批量导出")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导入图片" })).toBeInTheDocument();
+
+    cleanup();
+    renderSidebar({ selectedTaskIds: [task.id] });
+    expect(screen.getByLabelText("批量导出")).toBeInTheDocument();
   });
 });

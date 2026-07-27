@@ -1,4 +1,4 @@
-.statusbar { display: flex; min-width: 0; align-items: center; padding: 0 14px; border-top: 1px solid var(--border); background: var(--chrome); color: var(--muted); font-size: 10px; }
+.statusbar { display: flex; min-width: 0; align-items: center; padding: 0 14px; border-top: 1px solid var(--border); background: var(--chrome); color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .statusbar > span { display: flex; min-width: 0; align-items: center; gap: 5px; white-space: nowrap; }
 .statusbar > span + span { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--border); }
 .statusbar svg { font-size: 12px; }

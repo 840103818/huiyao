@@ -338,6 +338,7 @@ export function ImageWorkbench({
                 receivedCharacters={receivedCharacters}
                 completedItems={completedItems}
                 totalItems={totalItems}
+                compact
               />
             ) : null}
           </div>

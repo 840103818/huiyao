@@ -24,6 +24,8 @@
   .workspace-splitter-sidebar { display: none; }
   .workbench-grid { grid-template-columns: minmax(380px, var(--input-pane-weight, 52fr)) 8px minmax(420px, var(--result-pane-weight, 48fr)); }
   .settings-container, .logs-container { width: calc(100% - 32px); }
+  .log-toolbar { align-items: stretch; flex-direction: column; }
+  .log-action-group { justify-content: flex-end; }
 }
 @media (max-width: 900px) {
   .compare-toolbar { grid-template-columns: 1fr; }
