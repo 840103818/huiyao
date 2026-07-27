@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ResultPanel } from "./ResultPanel";
 import type { ReverseResult } from "../../shared/contracts";
@@ -62,6 +62,32 @@ describe("ResultPanel", () => {
   it("updates completion count for partial streaming data", () => {
     render(<ResultPanel result={{ ...result, analysis: { ...result.analysis, materials: "", style: "", camera: "", postProcessing: "" } }} generationState="streaming" />);
     expect(screen.getByText("已识别 6/10 项")).toBeInTheDocument();
+  });
+
+  it("moves the printing cursor with the growing analysis field and removes it during prompt output", async () => {
+    const partial = {
+      ...result,
+      analysis: { ...result.analysis, subject: "主", scene: "", composition: "", lighting: "", tonality: "", colors: "", palette: [], materials: "", style: "", camera: "", postProcessing: "" },
+      prompts: { zh: "", en: "" },
+    };
+    const { rerender } = render(<ResultPanel result={partial} generationState="streaming" />);
+    const grid = document.querySelector(".analysis-grid");
+
+    expect(grid).toHaveAttribute("aria-busy", "true");
+    expect(grid).toHaveAttribute("aria-live", "off");
+    await waitFor(() => expect(document.querySelector('[data-analysis-key="subject"]')).toHaveClass("is-printing"));
+
+    const growingScene = { ...partial, analysis: { ...partial.analysis, subject: "主体", scene: "暗" } };
+    rerender(<ResultPanel result={growingScene} generationState="streaming" />);
+    await waitFor(() => expect(document.querySelector('[data-analysis-key="scene"]')).toHaveClass("is-printing"));
+    expect(document.querySelector('[data-analysis-key="subject"]')).not.toHaveClass("is-printing");
+
+    rerender(<ResultPanel result={{ ...growingScene, prompts: { zh: "提示", en: "" } }} generationState="streaming" />);
+    await waitFor(() => expect(document.querySelector(".analysis-item.is-printing")).not.toBeInTheDocument());
+
+    rerender(<ResultPanel result={result} generationState="complete" />);
+    expect(grid).toHaveAttribute("aria-busy", "false");
+    expect(grid).toHaveAttribute("aria-live", "polite");
   });
 
   it("将长文测定值保留在各自的独立行内", () => {

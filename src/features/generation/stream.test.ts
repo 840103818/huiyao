@@ -1,41 +1,102 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createStreamUpdateScheduler, parseStreamingOptimization, parseStreamingResult } from "./stream";
+import { createStreamPrinterController, parseStreamingOptimization, parseStreamingResult, printerBatchSize } from "./stream";
 
 afterEach(() => vi.useRealTimers());
 
-describe("createStreamUpdateScheduler", () => {
-  it("coalesces updates and enforces the minimum parse interval", () => {
+describe("createStreamPrinterController", () => {
+  it("prints Unicode content progressively at the base pace", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    const update = vi.fn();
-    const scheduler = createStreamUpdateScheduler(update, 80, () => Date.now());
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { now: () => Date.now(), reducedMotion: () => false });
 
-    scheduler.schedule();
-    scheduler.schedule();
+    printer.append("你🙂好");
     vi.advanceTimersByTime(0);
-    expect(update).toHaveBeenCalledTimes(1);
-
-    scheduler.schedule();
-    scheduler.schedule();
-    vi.advanceTimersByTime(79);
-    expect(update).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(1);
-    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenLastCalledWith("你");
+    vi.advanceTimersByTime(40);
+    expect(update).toHaveBeenLastCalledWith("你🙂");
+    vi.advanceTimersByTime(40);
+    expect(update).toHaveBeenLastCalledWith("你🙂好");
+    expect(printer.pendingCharacters()).toBe(0);
   });
 
-  it("flushes the pending partial update when a stream is stopped", () => {
+  it("adapts the batch size to the pending backlog", () => {
+    expect(printerBatchSize(24)).toBe(1);
+    expect(printerBatchSize(25)).toBe(2);
+    expect(printerBatchSize(120)).toBe(5);
+    expect(printerBatchSize(121)).toBe(11);
+    expect(printerBatchSize(10_000)).toBe(48);
+  });
+
+  it("limits visual updates to roughly 25 frames per second", () => {
+    vi.useFakeTimers();
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { reducedMotion: () => false });
+    printer.append("流".repeat(10_000));
+
+    vi.advanceTimersByTime(1_000);
+
+    expect(update.mock.calls.length).toBeLessThanOrEqual(26);
+    printer.cancel();
+  });
+
+  it("finishes any remaining backlog within 240 milliseconds", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    const update = vi.fn();
-    const scheduler = createStreamUpdateScheduler(update, 80, () => Date.now());
-    scheduler.schedule();
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { now: () => Date.now(), reducedMotion: () => false });
+    const content = "流".repeat(2_000);
+    printer.append(content);
     vi.advanceTimersByTime(0);
-    scheduler.schedule();
 
-    scheduler.flush();
-    expect(update).toHaveBeenCalledTimes(2);
+    const finished = printer.finish();
+    await vi.advanceTimersByTimeAsync(239);
+    expect(printer.pendingCharacters()).toBeGreaterThan(0);
+    await vi.advanceTimersByTimeAsync(1);
+    await finished;
+    expect(update).toHaveBeenLastCalledWith(content);
+  });
+
+  it("flushes arrived content on stop and discards stale content on reset", () => {
+    vi.useFakeTimers();
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { reducedMotion: () => false });
+    printer.append("已经收到的内容");
+    printer.flush();
+    expect(update).toHaveBeenLastCalledWith("已经收到的内容");
+
+    printer.append("旧请求");
+    printer.reset();
     vi.runAllTimers();
-    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).not.toHaveBeenCalledWith("已经收到的内容旧请求");
+  });
+
+  it("cancels pending animation without emitting undisplayed content", async () => {
+    vi.useFakeTimers();
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { reducedMotion: () => false });
+    printer.append("不会继续显示的旧请求内容");
+    vi.advanceTimersByTime(0);
+    const displayedBeforeCancel = printer.displayedContent();
+    const finishing = printer.finish();
+
+    printer.cancel();
+    await finishing;
+    vi.runAllTimers();
+
+    expect(printer.displayedContent()).toBe(displayedBeforeCancel);
+    expect(update).toHaveBeenLastCalledWith(displayedBeforeCancel);
+    expect(printer.pendingCharacters()).toBe(0);
+  });
+
+  it("shows the complete received chunk without per-character delay for reduced motion", () => {
+    vi.useFakeTimers();
+    const update = vi.fn<(content: string) => void>();
+    const printer = createStreamPrinterController(update, { reducedMotion: () => true });
+    printer.append("减少动态效果");
+    vi.runAllTimers();
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenLastCalledWith("减少动态效果");
   });
 });
 

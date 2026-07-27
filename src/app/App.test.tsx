@@ -134,11 +134,11 @@ describe("App image reverse workflow", () => {
 
     await chooseImage();
     fireEvent.click(screen.getByRole("button", { name: "开始反推" }));
-    expect(await screen.findByText("部分结果")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "停止生成" }));
+    fireEvent.click(await screen.findByRole("button", { name: "停止生成" }));
     await waitFor(() => expect(mocks.cancelReversePrompt).toHaveBeenCalledWith("req-cancel"));
     rejectRequest({ code: "cancelled", message: "已停止生成" });
 
+    expect(await screen.findByText("部分结果")).toBeInTheDocument();
     await screen.findByText("生成已停止");
     expect(mocks.persistHistory).not.toHaveBeenCalled();
   });
