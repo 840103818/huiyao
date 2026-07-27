@@ -22,6 +22,7 @@
 .analysis-main { display: grid; min-width: 0; gap: 9px; }
 .analysis-main.has-palette { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
 .analysis-text { display: -webkit-box; min-width: 0; max-width: 76ch; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.analysis-item.is-printing .analysis-text::after { display: inline-block; width: 1px; height: 1.08em; margin-left: 2px; vertical-align: -.14em; background: var(--brand); animation: caret-blink .8s step-end infinite; content: ""; }
 .analysis-text.is-expanded { display: block; overflow: visible; }
 .analysis-placeholder { color: var(--faint); }
 .analysis-value .arco-skeleton { width: 100%; }

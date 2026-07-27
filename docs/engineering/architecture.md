@@ -60,7 +60,7 @@ domain -X-> tauri
 2. 桌面端通过 Raw IPC 将原图字节暂存到 Rust 加密区。
 3. `reverse_prompt_stream` 获取请求槽、读取设置和 Keychain API Key。
 4. HTTP 基础设施构建多模态请求并解析 SSE；Channel 只传递 started、delta 和 fallback。
-5. 前端按动画帧合并增量并解析部分 JSON，最终以 Rust 严格解析结果为准。
+5. 前端打印控制器以 40ms 为上限合并更新，基于积压量自适应展示增量并解析部分 JSON；SSE 完成后最多 240ms 收尾，最终以 Rust 严格解析结果为准。
 6. 结果与原图提交在历史写入锁内完成；失败时结果保留并提供重试。
 
 ## 兼容边界

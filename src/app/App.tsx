@@ -68,7 +68,7 @@ import {
   updateProjectTaskResult,
 } from "../infrastructure/tauri";
 import { prepareImage, revokePreparedImagePreview } from "../features/image-input/image";
-import { createStreamUpdateScheduler, parseStreamingResult } from "../features/generation/stream";
+import { createStreamPrinterController, parseStreamingResult } from "../features/generation/stream";
 import type {
   CommandFailure,
   DetailLevel,
@@ -167,13 +167,12 @@ export default function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [firstTokenMs, setFirstTokenMs] = useState<number>();
   const [receivedCharacters, setReceivedCharacters] = useState(0);
-  const streamBufferRef = useRef("");
   const receivedCharactersRef = useRef(0);
-  const streamSchedulerRef = useRef<ReturnType<typeof createStreamUpdateScheduler> | null>(null);
-  if (!streamSchedulerRef.current) {
-    streamSchedulerRef.current = createStreamUpdateScheduler(() => {
+  const streamPrinterRef = useRef<ReturnType<typeof createStreamPrinterController> | null>(null);
+  if (!streamPrinterRef.current) {
+    streamPrinterRef.current = createStreamPrinterController((content) => {
       setReceivedCharacters(receivedCharactersRef.current);
-      const partial = parseStreamingResult(streamBufferRef.current);
+      const partial = parseStreamingResult(content);
       if (partial) setResult(partial);
     });
   }
@@ -333,8 +332,7 @@ export default function App() {
     setReceivedCharacters(0);
     receivedCharactersRef.current = 0;
     firstTokenRecordedRef.current = false;
-    streamBufferRef.current = "";
-    streamSchedulerRef.current?.reset();
+    streamPrinterRef.current?.reset();
   }, []);
 
   const handleImageFile = useCallback(async (file: File) => {
@@ -469,9 +467,8 @@ export default function App() {
       setFirstTokenMs(Date.now() - requestStartedAtRef.current);
     }
     setGenerationState("streaming");
-    streamBufferRef.current += event.content;
     receivedCharactersRef.current += Array.from(event.content).length;
-    streamSchedulerRef.current?.schedule();
+    streamPrinterRef.current?.append(event.content);
   }, []);
 
   const updateHistory = useCallback((mutate: (items: HistoryItem[]) => HistoryItem[], originalCommit?: OriginalImageCommit) => {
@@ -520,8 +517,7 @@ export default function App() {
     setReceivedCharacters(0);
     receivedCharactersRef.current = 0;
     firstTokenRecordedRef.current = false;
-    streamBufferRef.current = "";
-    streamSchedulerRef.current?.reset();
+    streamPrinterRef.current?.reset();
     cancelRequestedRef.current = false;
     requestStartedAtRef.current = Date.now();
     try {
@@ -537,12 +533,12 @@ export default function App() {
         detailLevel,
       }, handleStreamEvent);
       if (cancelRequestedRef.current) {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         setGenerationState("cancelled");
         showNotice("已停止生成");
         return;
       }
-      streamSchedulerRef.current?.cancel();
+      await streamPrinterRef.current?.finish();
       setResult(next);
       setIsFinalResult(true);
       setGenerationState("complete");
@@ -595,12 +591,12 @@ export default function App() {
       }
     } catch (error) {
       if (getErrorCode(error) === "cancelled") {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         setGenerationState("cancelled");
         if (activeTaskId) await updateProjectTaskStatus([activeTaskId], "paused").catch(() => undefined);
         showNotice("已停止生成");
       } else {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         setGenerationState("idle");
         const failure = getCommandFailure(error);
         setGenerationError(failure);
@@ -659,8 +655,9 @@ export default function App() {
         setResult(null);
         setIsFinalResult(false);
         setGenerationState("connecting");
-        streamBufferRef.current = "";
+        streamPrinterRef.current?.reset();
         receivedCharactersRef.current = 0;
+        setReceivedCharacters(0);
         firstTokenRecordedRef.current = false;
         requestStartedAtRef.current = Date.now();
       }
@@ -669,6 +666,7 @@ export default function App() {
         if (event.type === "started") { interaction = event.interactionId; queueInteractionIdsRef.current.add(interaction); }
         if (isSelected) handleStreamEvent(event);
       });
+      if (isSelected) await streamPrinterRef.current?.finish();
       if (interaction) queueInteractionIdsRef.current.delete(interaction);
       if (preset.autoOptimizeTarget) {
         const optimized = await runPromptOptimization({ analysis: next.analysis, sourcePrompts: next.prompts, target: preset.autoOptimizeTarget, requirements: preset.autoOptimizeRequirements, aspectRatio: taskItem.imageInfo ? simplifyAspectRatio(taskItem.imageInfo.width, taskItem.imageInfo.height) : undefined }, (event) => {
@@ -685,7 +683,11 @@ export default function App() {
       const failure = getCommandFailure(error);
       if (queueStopRef.current || failure.code === "cancelled") await updateProjectTaskStatus([taskItem.id], "paused");
       else await failProjectTask(taskItem.id, failure.code, failure.message);
-      if (taskItem.id === activeTaskId) { setGenerationState(failure.code === "cancelled" ? "cancelled" : "idle"); setGenerationError(failure); }
+      if (taskItem.id === activeTaskId) {
+        streamPrinterRef.current?.flush();
+        setGenerationState(failure.code === "cancelled" ? "cancelled" : "idle");
+        setGenerationError(failure);
+      }
     } finally {
       if (!previewTransferred) revokePreparedImagePreview(prepared);
     }
@@ -1003,7 +1005,7 @@ export default function App() {
 
   useEffect(() => () => window.clearTimeout(preferencesTimerRef.current), []);
 
-  useEffect(() => () => streamSchedulerRef.current?.reset(), []);
+  useEffect(() => () => streamPrinterRef.current?.reset(), []);
 
   const navigate = useCallback((next: AppView) => {
     if (view === "settings" && next !== "settings" && settingsDirty) {

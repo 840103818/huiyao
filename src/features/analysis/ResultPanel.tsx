@@ -39,8 +39,11 @@ export function ResultPanel({ result, generationState, captureMetadata }: Result
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<"all" | AnalysisGroup>("all");
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [printingKey, setPrintingKey] = useState<string>();
   const gridRef = useRef<HTMLDivElement>(null);
   const resultIdentityRef = useRef("");
+  const previousAnalysisRef = useRef<Record<string, string>>({});
+  const previousPromptsRef = useRef({ zh: "", en: "" });
   const loading = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
   const completedCount = rows.filter(([key]) => Boolean(analysis?.[key])).length;
   const expandableKeys = useMemo(() => rows
@@ -60,6 +63,24 @@ export function ResultPanel({ result, generationState, captureMetadata }: Result
     if (!result || generationState === "connecting" || changedResult) setExpandedKeys(new Set());
     resultIdentityRef.current = identity;
   }, [generationState, result?.metadata.createdAt]);
+
+  useEffect(() => {
+    const current = Object.fromEntries(rows.map(([key]) => [key, analysis?.[key] ?? ""]));
+    const currentPrompts = { zh: result?.prompts.zh ?? "", en: result?.prompts.en ?? "" };
+    const promptIsGrowing = currentPrompts.zh.length > previousPromptsRef.current.zh.length
+      || currentPrompts.en.length > previousPromptsRef.current.en.length;
+    let nextPrintingKey: string | undefined;
+    if (loading && !promptIsGrowing) {
+      for (const [key] of rows) {
+        const previous = previousAnalysisRef.current[key] ?? "";
+        const value = current[key];
+        if (value.length > previous.length && value.startsWith(previous)) nextPrintingKey = key;
+      }
+    }
+    previousAnalysisRef.current = current;
+    previousPromptsRef.current = currentPrompts;
+    setPrintingKey(nextPrintingKey);
+  }, [analysis, loading, result?.prompts.en, result?.prompts.zh]);
 
   const toggleItem = (key: string) => {
     setExpandedKeys((current) => {
@@ -109,7 +130,7 @@ export function ResultPanel({ result, generationState, captureMetadata }: Result
           </Button>
         </div>
       </div>
-      <div ref={gridRef} className="analysis-grid" aria-live="polite">
+      <div ref={gridRef} className="analysis-grid" aria-live={loading ? "off" : "polite"} aria-busy={loading}>
         {!result && generationState === "idle" ? (
           <Empty className="panel-empty" description="选择图片并开始反推" />
         ) : rows.map(([key, label, Icon, group], index) => {
@@ -119,7 +140,7 @@ export function ResultPanel({ result, generationState, captureMetadata }: Result
           return (
           <div className="analysis-row-group" key={key} data-analysis-group={index === 0 || rows[index - 1][3] !== group ? group : undefined}>
             {index === 0 || rows[index - 1][3] !== group ? <div className="analysis-group-heading">{groupLabels[group]}</div> : null}
-          <div className={`analysis-item ${value ? "ready" : ""} ${expanded ? "is-expanded" : ""}`} data-analysis-key={key}>
+          <div className={`analysis-item ${value ? "ready" : ""} ${expanded ? "is-expanded" : ""} ${printingKey === key ? "is-printing" : ""}`} data-analysis-key={key}>
             <span className="analysis-label"><Icon />{label}</span>
             <div className={`analysis-value ${key === "colors" && analysis?.palette?.length ? "has-palette" : ""}`}>
               <div className={`analysis-main ${key === "colors" && analysis?.palette?.length ? "has-palette" : ""}`}>

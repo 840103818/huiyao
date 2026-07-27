@@ -11,5 +11,7 @@
 - `settings-dark-1120x720.png`：分类导航与固定保存区。
 - `logs-light-1440x900.png`：Console 风格日志页与空状态。
 - `settings-http-confirm-light-1440x900.png`：明文 HTTP 风险确认。
+- `generation-stream-light-1440x900.png`、`generation-stream-dark-1120x720.png`：双尺寸、双主题下的反推 SSE 打印状态。
+- `prompt-optimization-light-1440x900.png`、`prompt-optimization-dark-1120x720.png`：双尺寸、双主题下的提示词优化流式状态。
 
 其余图片记录视觉输入、流式生成、摄影测定、提示词优化、版本比较、EXIF、废纸篓和图片查看器等关键交互。页面样式变化影响对应状态时必须同步覆盖。

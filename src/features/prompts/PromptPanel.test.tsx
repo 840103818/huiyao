@@ -20,7 +20,10 @@ const result: ReverseResult = {
 };
 
 describe("PromptPanel", () => {
-  beforeEach(() => bridgeMocks.runPromptOptimization.mockReset());
+  beforeEach(() => {
+    bridgeMocks.runPromptOptimization.mockReset();
+    bridgeMocks.cancelReversePrompt.mockClear();
+  });
   it("uses localized tabs and reports the active prompt character count", () => {
     render(<PromptPanel result={result} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} />);
     expect(screen.getByText("共 5 字")).toBeInTheDocument();
@@ -57,7 +60,7 @@ describe("PromptPanel", () => {
         metadata: result.metadata,
       });
       onEvent({ type: "started", interactionId: "opt-1" });
-      onEvent({ type: "delta", content: JSON.stringify({ prompts: { zh: "优化中文", en: "optimized English" }, negativePrompts: { zh: "", en: "" } }) });
+      onEvent({ type: "delta", content: JSON.stringify({ negativePrompts: { zh: "避免模糊", en: "avoid blur" }, prompts: { zh: "优化中文", en: "optimized English" } }) });
       return new Promise((resolve) => { resolveOptimization = resolve; });
     });
     const onResultChange = vi.fn().mockResolvedValue(undefined);
@@ -71,14 +74,45 @@ describe("PromptPanel", () => {
       const languageIndicators = document.querySelectorAll(".processing-languages i");
       expect(languageIndicators[0]).toHaveClass("is-ready");
       expect(languageIndicators[1]).toHaveClass("is-ready");
-    });
+    }, { timeout: 3_000 });
+    expect(onResultChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("提示词正文")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByLabelText("提示词正文")).toHaveAttribute("aria-live", "off");
+
+    fireEvent.click(screen.getByText("英文提示词"));
+    await waitFor(() => expect(screen.getByLabelText("提示词正文")).toHaveTextContent("optimized English"));
+    await waitFor(() => expect(screen.getByLabelText("提示词正文")).toHaveTextContent("avoid blur"), { timeout: 3_000 });
 
     await act(async () => resolveOptimization({
       prompts: { zh: "优化中文", en: "optimized English" },
-      negativePrompts: { zh: "", en: "" },
+      negativePrompts: { zh: "避免模糊", en: "avoid blur" },
       metadata: { ...result.metadata, createdAt: "2026-01-01T00:01:00Z" },
     }));
     await waitFor(() => expect(onResultChange).toHaveBeenCalledTimes(1));
+  });
+
+  it("flushes received optimization content on stop without creating a version", async () => {
+    let rejectOptimization: (reason: unknown) => void = () => undefined;
+    bridgeMocks.runPromptOptimization.mockImplementation((_request, onEvent) => {
+      if (typeof onEvent !== "function") return Promise.resolve({
+        prompts: { zh: "停止前已收到", en: "received before stop" },
+        negativePrompts: { zh: "", en: "" },
+        metadata: result.metadata,
+      });
+      onEvent({ type: "started", interactionId: "opt-stop" });
+      onEvent({ type: "delta", content: JSON.stringify({ prompts: { zh: "停止前已收到", en: "received before stop" }, negativePrompts: { zh: "", en: "" } }) });
+      return new Promise((_resolve, reject) => { rejectOptimization = reject; });
+    });
+    const onResultChange = vi.fn().mockResolvedValue(undefined);
+    render(<PromptPanel result={result} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={onResultChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "优化" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始优化" }));
+    fireEvent.click(await screen.findByRole("button", { name: "停止优化" }));
+    await waitFor(() => expect(bridgeMocks.cancelReversePrompt).toHaveBeenCalledWith("opt-stop"));
+
+    await act(async () => rejectOptimization({ code: "cancelled", message: "已停止优化" }));
+    expect(await screen.findByText(/停止前已收到/)).toBeInTheDocument();
+    expect(onResultChange).not.toHaveBeenCalled();
   });
 
   it("keeps the action toolbar as the final row in every output state", () => {

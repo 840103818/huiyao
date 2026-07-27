@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cancelReversePrompt, formatGeneratedAt, getActivePromptVersion, getErrorCode, getErrorMessage, runPromptOptimization } from "../../infrastructure/tauri";
 import type { CommandFailure, GenerationState, PromptOptimizationOutput, PromptOptimizationTarget, PromptVersion, ResultExportFormat, ReverseResult } from "../../shared/contracts";
 import { ProcessingStatus } from "../generation/ProcessingStatus";
-import { createStreamUpdateScheduler, parseStreamingOptimization } from "../generation/stream";
+import { createStreamPrinterController, parseStreamingOptimization } from "../generation/stream";
 
 interface PromptPanelProps {
   result: ReverseResult | null;
@@ -59,13 +59,12 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   const [compareLanguage, setCompareLanguage] = useState<"zh" | "en">("zh");
   const editorRef = useRef<HTMLPreElement>(null);
   const followStreamRef = useRef(true);
-  const streamBufferRef = useRef("");
   const receivedCharactersRef = useRef(0);
-  const streamSchedulerRef = useRef<ReturnType<typeof createStreamUpdateScheduler> | null>(null);
-  if (!streamSchedulerRef.current) {
-    streamSchedulerRef.current = createStreamUpdateScheduler(() => {
+  const streamPrinterRef = useRef<ReturnType<typeof createStreamPrinterController> | null>(null);
+  if (!streamPrinterRef.current) {
+    streamPrinterRef.current = createStreamPrinterController((content) => {
       setOptimizationReceivedCharacters(receivedCharactersRef.current);
-      const partial = parseStreamingOptimization(streamBufferRef.current);
+      const partial = parseStreamingOptimization(content);
       if (partial) setOptimizationPartial(partial);
     });
   }
@@ -95,7 +94,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
 
   useEffect(() => () => {
     if (optimizationInteractionRef.current) void cancelReversePrompt(optimizationInteractionRef.current);
-    streamSchedulerRef.current?.reset();
+    streamPrinterRef.current?.reset();
   }, []);
 
   useEffect(() => {
@@ -150,8 +149,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
     optimizationStartedAtRef.current = Date.now();
     setOptimizationError(undefined);
     setOptimizationPartial(undefined);
-    streamBufferRef.current = "";
-    streamSchedulerRef.current?.reset();
+    streamPrinterRef.current?.reset();
     optimizationInteractionRef.current = undefined;
     try {
       const output = await runPromptOptimization({
@@ -174,16 +172,15 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         }
         if (event.type !== "delta") return;
         setOptimizationState("streaming");
-        streamBufferRef.current += event.content;
         receivedCharactersRef.current += Array.from(event.content).length;
-        streamSchedulerRef.current?.schedule();
+        streamPrinterRef.current?.append(event.content);
       });
       if (optimizationCancelRequestedRef.current) {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         setOptimizationState("cancelled");
         return;
       }
-      streamSchedulerRef.current?.cancel();
+      await streamPrinterRef.current?.finish();
       const version: PromptVersion = {
         id: crypto.randomUUID(), target, requirements: requirements.trim(),
         origin: "optimization", sourceVersionId,
@@ -202,11 +199,11 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
       message.success?.("提示词优化完成并已保存为新版本");
     } catch (cause) {
       if (getErrorCode(cause) === "cancelled") {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         setOptimizationState("cancelled");
         message.info?.("已停止优化，当前部分内容仍可复制");
       } else {
-        streamSchedulerRef.current?.flush();
+        streamPrinterRef.current?.flush();
         const text = getErrorMessage(cause);
         setOptimizationState("idle");
         setOptimizationError(text);
@@ -326,7 +323,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         ) : null}
         <div className="prompt-content">
           {!editorContent && !loading && !optimizing ? <Empty description={generationState === "cancelled" ? "生成已停止" : "尚未生成提示词"} /> : (
-            <pre ref={editorRef} aria-label="提示词正文" onScroll={(event) => {
+            <pre ref={editorRef} aria-label="提示词正文" aria-busy={loading || optimizing} aria-live={loading || optimizing ? "off" : "polite"} onScroll={(event) => {
               const element = event.currentTarget;
               followStreamRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 28;
             }}>
