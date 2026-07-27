@@ -37,6 +37,8 @@
 
 全局 Token 使用纯中性灰表面，功能色只表达状态与操作。Shell 分隔器、设置分类导航和日志 Console 表面属于全局布局；项目概览、图片画布、摄影测定与提示词样式继续留在各功能目录。不得用组件内联颜色绕过明暗主题。
 
+macOS WebKit 的进程异常恢复界面不属于 React DOM，语言由应用包元数据决定。`src-tauri/Info.plist` 将 `CFBundleDevelopmentRegion` 设为 `zh_CN`，并声明 `zh-Hans` 本地化；不要在前端增加无法覆盖系统错误页的伪恢复按钮。
+
 ## 新功能放置
 
 优先将组件、Hook、工具和测试放入所属 `features/<name>/`。只有被至少两个功能使用且没有领域归属的代码才进入 `shared/`。调用 Tauri 时通过 `infrastructure/tauri` 公共入口，不从组件直接调用 `invoke`。

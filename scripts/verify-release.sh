@@ -19,6 +19,8 @@ codesign --verify --deep --strict --verbose=2 "$VERIFY_APP"
 test "$(plutil -extract CFBundleIdentifier raw "$VERIFY_APP/Contents/Info.plist")" = "com.huiyao.studio"
 test "$(plutil -extract CFBundleShortVersionString raw "$VERIFY_APP/Contents/Info.plist")" = "$VERSION"
 test "$(plutil -extract CFBundleIconFile raw "$VERIFY_APP/Contents/Info.plist")" = "icon.icns"
+test "$(plutil -extract CFBundleDevelopmentRegion raw "$VERIFY_APP/Contents/Info.plist")" = "zh_CN"
+test "$(plutil -extract CFBundleLocalizations.0 raw "$VERIFY_APP/Contents/Info.plist")" = "zh-Hans"
 test "$(lipo -archs "$VERIFY_APP/Contents/MacOS/huiyao")" = "arm64"
 
 hdiutil verify "$DMG_PATH"

@@ -44,7 +44,8 @@
     "longDescription": "面向设计师和内容创作者的图片反向提示词工作台。",
     "macOS": {
       "minimumSystemVersion": "12.0",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "infoPlist": "Info.plist"
     }
   }
 }
