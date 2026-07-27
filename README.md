@@ -2,7 +2,7 @@
 
 绘钥是使用 React、TypeScript、Arco Design 和 Tauri 2 构建的 macOS 本地数字暗房工作台。它以项目组织图片任务，批量完成摄影测定、双语提示词和提示词精修，并提供加密原图、EXIF、预设、标签、废纸篓、批量导出与运行诊断。界面采用 Apple 原生极简方向，项目栏、视觉输入和结果区可按当前工作内容调整宽度。
 
-当前版本：`1.0.0`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
+当前版本：`1.0.1`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
 
 ![绘钥工作台](docs/assets/ui/current/workspace-light-1440x900.png)
 
@@ -64,6 +64,7 @@ artifacts/             本地发布、视觉检查和测试产物，不提交 Gi
 ## 文档导航
 
 - [产品与使用说明](docs/product/overview.md)
+- [版本更新记录](CHANGELOG.md)
 - [项目工作台操作说明](docs/product/workspace.md)
 - [界面设计系统](docs/design/ui-system.md)
 - [交互规范](docs/design/interaction.md)
