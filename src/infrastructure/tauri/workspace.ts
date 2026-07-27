@@ -16,6 +16,7 @@ export const renameProject = (projectId: string, title: string) => desktop<void>
 export const deleteProject = (projectId: string) => desktop<void>("delete_project", { projectId });
 export const listProjectTasks = (projectId: string, filter: TaskFilter, query: string, offset = 0, limit = 50) => desktop<ProjectTaskPage>("list_project_tasks", { projectId, filter, query, offset, limit });
 export const getProjectTask = (taskId: string) => desktop<ProjectTask>("get_project_task", { taskId });
+export const renameProjectTask = (taskId: string, title: string) => desktop<void>("rename_project_task", { taskId, title });
 export const importProjectTask = (input: ImportProjectTaskInput) => desktop<ProjectTask>("import_project_task", { input });
 export const updateProjectTaskStatus = (taskIds: string[], status: TaskStatus) => desktop<number>("update_project_task_status", { taskIds, status });
 export const completeProjectTask = (taskId: string, result: ProjectTask["result"]) => desktop<void>("complete_project_task", { input: { taskId, result } });
@@ -23,6 +24,8 @@ export const updateProjectTaskResult = (taskId: string, result: ProjectTask["res
 export const failProjectTask = (taskId: string, code: string, message: string) => desktop<void>("fail_project_task", { input: { taskId, code, message } });
 export const setProjectTaskFavorite = (taskId: string, favorite: boolean) => desktop<void>("set_project_task_favorite", { taskId, favorite });
 export const setProjectTaskTags = (taskId: string, tags: string[]) => desktop<void>("set_project_task_tags", { taskId, tags });
+export const setProjectTasksFavorite = (taskIds: string[], favorite: boolean) => desktop<number>("set_project_tasks_favorite", { taskIds, favorite });
+export const updateProjectTasksTags = (taskIds: string[], tags: string[], remove = false) => desktop<number>("update_project_tasks_tags", { taskIds, tags, remove });
 export const moveProjectTasks = (taskIds: string[], projectId: string) => desktop<number>("move_project_tasks", { taskIds, projectId });
 export const reorderProjectTasks = (taskIds: string[]) => desktop<void>("reorder_project_tasks", { taskIds });
 export const duplicateProjectTask = (taskId: string) => desktop<ProjectTask>("duplicate_project_task", { taskId });

@@ -1,6 +1,6 @@
 import {
   Badge, Button, Checkbox, Drawer, Dropdown, Empty, Input, Menu, Modal, Popconfirm,
-  Progress, Select, Tag, Tooltip,
+  Progress, Radio, Select, Tag, Tooltip,
 } from "@arco-design/web-react";
 import {
   IconArchive, IconCaretRight, IconDelete, IconDownload, IconDragDotVertical,
@@ -43,6 +43,10 @@ interface Props {
   onSelectionChange: (ids: string[]) => void;
   onFavorite: (task: ProjectTask) => void;
   onTags: (task: ProjectTask, tags: string[]) => Promise<void>;
+  onRenameTask?: (task: ProjectTask, title: string) => Promise<void>;
+  onRetryTask?: (task: ProjectTask) => Promise<void>;
+  onBatchFavorite?: (ids: string[], favorite: boolean) => Promise<void>;
+  onBatchTags?: (ids: string[], tags: string[], remove: boolean) => Promise<void>;
   onDuplicate: (task: ProjectTask) => void;
   onDeleteTasks: (ids: string[]) => void;
   onReorder: (ids: string[]) => void;
@@ -69,8 +73,11 @@ export function ProjectTaskSidebar(props: Props) {
   const [projectEditor, setProjectEditor] = useState<{ id?: string; title: string }>();
   const [tagEditor, setTagEditor] = useState<ProjectTask>();
   const [tagText, setTagText] = useState("");
+  const [taskEditor, setTaskEditor] = useState<ProjectTask>();
+  const [taskTitle, setTaskTitle] = useState("");
+  const [batchTagEditor, setBatchTagEditor] = useState<"add" | "remove">();
   const [trashOpen, setTrashOpen] = useState(false);
-  const [presetEditor, setPresetEditor] = useState<{ id?: string; title: string; requirements: string }>();
+  const [presetEditor, setPresetEditor] = useState<{ id?: string; title: string; snapshot: ReversePreset["snapshot"] }>();
   const selected = new Set(props.selectedTaskIds);
   const project = props.projects.find((item) => item.id === props.activeProjectId);
   const submitProject = async () => {
@@ -113,7 +120,7 @@ export function ProjectTaskSidebar(props: Props) {
         <Select value={props.activePresetId} onChange={props.onPresetChange} aria-label="反推预设">
           {props.presets.map((preset) => <Select.Option key={preset.id} value={preset.id}>{preset.title}</Select.Option>)}
         </Select>
-        <Tooltip content="编辑或复制预设"><Button shape="circle" type="text" icon={<IconEdit />} aria-label="编辑预设" onClick={() => { const current = props.presets.find((item) => item.id === props.activePresetId); if (current) setPresetEditor({ id: current.builtIn ? undefined : current.id, title: current.builtIn ? `${current.title} 副本` : current.title, requirements: current.snapshot.requirements }); }} /></Tooltip>
+        <Tooltip content="编辑或复制预设"><Button shape="circle" type="text" icon={<IconEdit />} aria-label="编辑预设" onClick={() => { const current = props.presets.find((item) => item.id === props.activePresetId); if (current) setPresetEditor({ id: current.builtIn ? undefined : current.id, title: current.builtIn ? `${current.title} 副本` : current.title, snapshot: { ...current.snapshot } }); }} /></Tooltip>
       </div>
       <div className="queue-summary">
         <div><strong>{props.progress.completed}/{props.progress.total}</strong><span>队列进度</span></div>
@@ -128,6 +135,12 @@ export function ProjectTaskSidebar(props: Props) {
         <div className="batch-toolbar">
           <Checkbox checked={props.selectedTaskIds.length === props.tasks.length} onChange={(checked) => props.onSelectionChange(checked ? props.tasks.map((task) => task.id) : [])}>{props.selectedTaskIds.length} 项</Checkbox>
           <Dropdown trigger="click" droplist={<Menu onClickMenuItem={(key) => props.onMove(props.selectedTaskIds, key)}>{props.projects.filter((item) => item.id !== props.activeProjectId).map((item) => <Menu.Item key={item.id}>{item.title}</Menu.Item>)}</Menu>}><Tooltip content="移动到项目"><Button shape="circle" icon={<IconSwap />} aria-label="移动到项目" /></Tooltip></Dropdown>
+          <Dropdown trigger="click" droplist={<Menu onClickMenuItem={(key) => {
+            if (key === "favorite") void props.onBatchFavorite?.(props.selectedTaskIds, true);
+            if (key === "unfavorite") void props.onBatchFavorite?.(props.selectedTaskIds, false);
+            if (key === "tag-add") { setTagText(""); setBatchTagEditor("add"); }
+            if (key === "tag-remove") { setTagText(""); setBatchTagEditor("remove"); }
+          }}><Menu.Item key="favorite"><IconStar />收藏</Menu.Item><Menu.Item key="unfavorite"><IconHeart />取消收藏</Menu.Item><Menu.Item key="tag-add"><IconTags />添加标签</Menu.Item><Menu.Item key="tag-remove"><IconTags />移除标签</Menu.Item></Menu>}><Tooltip content="批量整理"><Button shape="circle" icon={<IconTags />} aria-label="批量整理" /></Tooltip></Dropdown>
           <Tooltip content="批量导出"><Button shape="circle" icon={<IconDownload />} onClick={() => props.onExport(props.selectedTaskIds)} aria-label="批量导出" /></Tooltip>
           <Popconfirm title={`将 ${props.selectedTaskIds.length} 个任务移入废纸篓？`} onOk={() => props.onDeleteTasks(props.selectedTaskIds)}><Button shape="circle" status="danger" type="text" icon={<IconDelete />} aria-label="批量删除" /></Popconfirm>
         </div>
@@ -141,12 +154,14 @@ export function ProjectTaskSidebar(props: Props) {
             <Dropdown trigger="click" position="br" droplist={<Menu onClickMenuItem={(key) => {
               if (key === "favorite") props.onFavorite(task);
               else if (key === "tags") { setTagEditor(task); setTagText(task.tags.join(", ")); }
+              else if (key === "rename") { setTaskEditor(task); setTaskTitle(task.title); }
+              else if (key === "retry") void props.onRetryTask?.(task);
               else if (key === "duplicate") props.onDuplicate(task);
               else if (key === "export") props.onExport([task.id]);
               else if (key === "move-up" && taskIndex > 0) { const ids = props.tasks.map((item) => item.id); [ids[taskIndex - 1], ids[taskIndex]] = [ids[taskIndex], ids[taskIndex - 1]]; props.onReorder(ids); }
               else if (key === "move-down" && taskIndex < props.tasks.length - 1) { const ids = props.tasks.map((item) => item.id); [ids[taskIndex + 1], ids[taskIndex]] = [ids[taskIndex], ids[taskIndex + 1]]; props.onReorder(ids); }
               else if (key.startsWith("project:")) props.onMove([task.id], key.slice(8));
-            }}><Menu.Item key="favorite">{task.favorite ? <IconHeart /> : <IconStar />}{task.favorite ? "取消收藏" : "收藏"}</Menu.Item><Menu.Item key="tags"><IconTags />编辑标签</Menu.Item><Menu.Item key="move-up" disabled={taskIndex === 0}><IconUp />上移</Menu.Item><Menu.Item key="move-down" disabled={taskIndex === props.tasks.length - 1}><IconDown />下移</Menu.Item><Menu.SubMenu key="move-project" title={<span><IconSwap />移动到项目</span>}>{props.projects.filter((projectItem) => projectItem.id !== task.projectId).map((projectItem) => <Menu.Item key={`project:${projectItem.id}`}>{projectItem.title}</Menu.Item>)}</Menu.SubMenu><Menu.Item key="duplicate"><IconPlus />重新生成副本</Menu.Item><Menu.Item key="export" disabled={task.status !== "completed"}><IconDownload />导出任务</Menu.Item></Menu>}>
+            }}><Menu.Item key="rename"><IconEdit />重命名任务</Menu.Item><Menu.Item key="retry" disabled={!['failed','blocked','cancelled','paused'].includes(task.status)}><IconRefresh />重试此任务</Menu.Item><Menu.Item key="favorite">{task.favorite ? <IconHeart /> : <IconStar />}{task.favorite ? "取消收藏" : "收藏"}</Menu.Item><Menu.Item key="tags"><IconTags />编辑标签</Menu.Item><Menu.Item key="move-up" disabled={taskIndex === 0}><IconUp />上移</Menu.Item><Menu.Item key="move-down" disabled={taskIndex === props.tasks.length - 1}><IconDown />下移</Menu.Item><Menu.SubMenu key="move-project" title={<span><IconSwap />移动到项目</span>}>{props.projects.filter((projectItem) => projectItem.id !== task.projectId).map((projectItem) => <Menu.Item key={`project:${projectItem.id}`}>{projectItem.title}</Menu.Item>)}</Menu.SubMenu><Menu.Item key="duplicate"><IconPlus />重新生成副本</Menu.Item><Menu.Item key="export" disabled={task.status !== "completed"}><IconDownload />导出任务</Menu.Item></Menu>}>
               <Button className="task-more" shape="circle" type="text" icon={<IconMore />} aria-label={`${task.title} 操作`} onClick={(event) => event.stopPropagation()} />
             </Dropdown>
           </article>
@@ -162,9 +177,15 @@ export function ProjectTaskSidebar(props: Props) {
         {projectEditor?.id ? <Popconfirm title="将项目及任务移入废纸篓？" onOk={() => props.onDeleteProject(projectEditor.id!)}><Button className="project-delete-action" status="danger" type="text" icon={<IconDelete />}>删除项目</Button></Popconfirm> : null}
       </Modal>
       <Modal title="编辑任务标签" visible={Boolean(tagEditor)} onCancel={() => setTagEditor(undefined)} onOk={() => void submitTags()}><Input value={tagText} onChange={setTagText} placeholder="使用逗号分隔，最多 12 个" maxLength={300} /></Modal>
-      <Modal title={presetEditor?.id ? "编辑预设" : "复制为自定义预设"} visible={Boolean(presetEditor)} onCancel={() => setPresetEditor(undefined)} onOk={async () => { if (!presetEditor) return; const source = props.presets.find((item) => item.id === props.activePresetId)?.snapshot; if (!source) return; await props.onSavePreset(presetEditor.title, { ...source, requirements: presetEditor.requirements }, presetEditor.id); setPresetEditor(undefined); }} okButtonProps={{ disabled: !presetEditor?.title.trim() }}>
+      <Modal title="重命名任务" visible={Boolean(taskEditor)} onCancel={() => setTaskEditor(undefined)} onOk={async () => { if (!taskEditor || !taskTitle.trim() || !props.onRenameTask) return; await props.onRenameTask(taskEditor, taskTitle.trim()); setTaskEditor(undefined); }} okButtonProps={{ disabled: !taskTitle.trim() }}><Input value={taskTitle} maxLength={64} showWordLimit autoFocus onChange={setTaskTitle} /></Modal>
+      <Modal title={batchTagEditor === "remove" ? "批量移除标签" : "批量添加标签"} visible={Boolean(batchTagEditor)} onCancel={() => setBatchTagEditor(undefined)} onOk={async () => { if (!batchTagEditor || !props.onBatchTags) return; const tags = tagText.split(/[,，]/).map((value) => value.trim()).filter(Boolean); await props.onBatchTags(props.selectedTaskIds, tags, batchTagEditor === "remove"); setBatchTagEditor(undefined); }} okButtonProps={{ disabled: !tagText.trim() }}><Input value={tagText} onChange={setTagText} placeholder="使用逗号分隔标签" maxLength={300} /></Modal>
+      <Modal className="preset-editor-modal" title={presetEditor?.id ? "编辑预设" : "复制为自定义预设"} visible={Boolean(presetEditor)} onCancel={() => setPresetEditor(undefined)} onOk={async () => { if (!presetEditor) return; await props.onSavePreset(presetEditor.title, presetEditor.snapshot, presetEditor.id); setPresetEditor(undefined); }} okButtonProps={{ disabled: !presetEditor?.title.trim() }}>
         <Input value={presetEditor?.title ?? ""} maxLength={64} placeholder="预设名称" onChange={(title) => setPresetEditor((value) => value ? { ...value, title } : value)} />
-        <Input.TextArea className="preset-requirements" value={presetEditor?.requirements ?? ""} maxLength={2000} placeholder="补充要求" autoSize={{ minRows: 3, maxRows: 6 }} onChange={(requirements) => setPresetEditor((value) => value ? { ...value, requirements } : value)} />
+        <Input.TextArea className="preset-requirements" value={presetEditor?.snapshot.requirements ?? ""} maxLength={2000} placeholder="补充要求" autoSize={{ minRows: 3, maxRows: 6 }} onChange={(requirements) => setPresetEditor((value) => value ? { ...value, snapshot: { ...value.snapshot, requirements } } : value)} />
+        <label className="preset-editor-field"><span>输出语言</span><Radio.Group type="button" value={presetEditor?.snapshot.outputLanguage} onChange={(outputLanguage) => setPresetEditor((value) => value ? { ...value, snapshot: { ...value.snapshot, outputLanguage } } : value)}><Radio value="chinese">中文</Radio><Radio value="english">英文</Radio><Radio value="bilingual">双语</Radio></Radio.Group></label>
+        <label className="preset-editor-field"><span>详细程度</span><Select value={presetEditor?.snapshot.detailLevel} options={[{ label: "精简", value: "concise" }, { label: "标准", value: "standard" }, { label: "详细", value: "detailed" }, { label: "专家", value: "expert" }]} onChange={(detailLevel) => setPresetEditor((value) => value ? { ...value, snapshot: { ...value.snapshot, detailLevel } } : value)} /></label>
+        <label className="preset-editor-field"><span>自动优化</span><Select allowClear placeholder="不自动优化" value={presetEditor?.snapshot.autoOptimizeTarget} options={[{ label: "通用", value: "general" }, { label: "Midjourney", value: "midjourney" }, { label: "Flux", value: "flux" }, { label: "SDXL", value: "sdxl" }]} onChange={(autoOptimizeTarget) => setPresetEditor((value) => value ? { ...value, snapshot: { ...value.snapshot, autoOptimizeTarget } } : value)} /></label>
+        {presetEditor?.snapshot.autoOptimizeTarget ? <Input.TextArea className="preset-requirements" value={presetEditor.snapshot.autoOptimizeRequirements} maxLength={500} showWordLimit placeholder="自动优化附加要求" autoSize={{ minRows: 2, maxRows: 4 }} onChange={(autoOptimizeRequirements) => setPresetEditor((value) => value ? { ...value, snapshot: { ...value.snapshot, autoOptimizeRequirements } } : value)} /> : null}
         {presetEditor?.id ? <Popconfirm title="删除这个自定义预设？" onOk={async () => { await props.onDeletePreset(presetEditor.id!); setPresetEditor(undefined); }}><Button className="project-delete-action" status="danger" type="text" icon={<IconDelete />}>删除预设</Button></Popconfirm> : null}
       </Modal>
       <Drawer title={<span>废纸篓 <Badge count={props.trash.length} /></span>} visible={trashOpen} width={380} onCancel={() => setTrashOpen(false)} footer={<Popconfirm title="永久清空废纸篓？" onOk={props.onEmptyTrash}><Button long status="danger" disabled={!props.trash.length}>清空废纸篓</Button></Popconfirm>}>

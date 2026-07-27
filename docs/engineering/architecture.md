@@ -17,7 +17,7 @@ flowchart LR
 
 WebView 只处理交互、图片预览和部分 JSON 展示。模型凭证、网络请求、原图加密、持久化和任意文件写入均位于 Rust 边界内。
 
-## 1.0 工作区数据流
+## 2.0 工作区数据流
 
 ```mermaid
 flowchart LR
@@ -27,6 +27,8 @@ flowchart LR
   SQLite --> Queue["前端并发受控队列"]
   Queue --> Stream["复用 SSE 反推与优化"]
   Stream --> SQLite
+  Stream --> Revision["统一结果修订"]
+  Revision --> SQLite
   SQLite --> Export["Rust ZIP / 原生保存对话框"]
 ```
 
@@ -68,5 +70,6 @@ domain -X-> tauri
 - Tauri 命令名、Channel 事件和 camelCase 序列化字段是稳定接口。
 - `PublicSettings`、`WorkspacePreferences`、`HistoryItem` 和 `ReverseResult` 使用 serde 默认值兼容旧数据。
 - `Project`、`ProjectTask`、`ReversePreset` 和 `TrashEntry` 由 SQLite 管理；旧历史命令仅用于迁移兼容。
+- `ResultRevision` 保存在任务现有 `result_json` 中，不增加 SQLite 表；旧 `promptVersions` 兼容读取并在首次派生时幂等转换。
 - Keychain 服务名、应用数据目录和 Bundle ID 不因代码目录调整而变化。
 - 浏览器降级序列化与 Rust 原生导出必须保持同一 schema。

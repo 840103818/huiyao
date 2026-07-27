@@ -47,7 +47,7 @@ mod tests {
         };
         let body = result_json(&result, Some(&capture)).unwrap();
         let value: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(value["schemaVersion"], 1);
+        assert_eq!(value["schemaVersion"], 2);
         assert_eq!(value["kind"], "huiyao.reverse-prompt");
         assert_eq!(value["captureMetadata"]["cameraModel"], "Camera X");
         let serialized = String::from_utf8(body).unwrap();

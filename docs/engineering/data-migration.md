@@ -1,4 +1,4 @@
-# 1.0 数据迁移
+# 2.0 数据迁移
 
 ## 迁移目标
 
@@ -20,3 +20,11 @@
 - 启动时把遗留的 `queued/preparing/running` 任务恢复为 `paused`，禁止自动产生费用。
 - 数据库创建失败时应用拒绝进入不完整工作区，不覆盖旧历史或原图。
 - 永久删除在确认数据库不再引用资产后清理隔离原图；共享资产仅在最后一个任务引用删除后清理。
+
+## 结果修订兼容
+
+2.0 不修改 SQLite Schema，统一修订继续存入任务现有 `result_json`。旧结果缺少 `resultRevisions` 和 `activeResultRevisionId` 时由 serde 默认为空。
+
+旧 `promptVersions` 保持原样可读。用户首次创建人工校正、AI 重测、提示词编辑或平台优化时，前端把现有提示词版本幂等转换为统一 `ResultRevision`，保留 ID、标题、来源关系、平台、正负提示词和生成元数据；基础摄影测定作为旧版本的测定快照。转换成功保存前不覆盖旧字段，失败可继续使用旧版本。
+
+结构化导出升级为 `schemaVersion: 2`，增加 `activeRevision` 并让 `analysis`、`activePrompt` 指向当前活动修订。Markdown 和纯文本格式保持可读兼容。

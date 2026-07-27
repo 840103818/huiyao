@@ -31,6 +31,10 @@
   .compare-toolbar { grid-template-columns: 1fr; }
   .compare-toolbar > span { display: none; }
   .prompt-comparison-grid { grid-template-columns: 1fr; }
+  .revision-comparison-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 1239px) {
+  .analysis-refinement-drawer .arco-drawer, .revision-compare-drawer .arco-drawer { width: min(94vw, 900px) !important; }
 }
 @media (max-height: 760px) {
   .image-stage-wrap { padding-top: 7px; }

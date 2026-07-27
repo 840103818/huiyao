@@ -239,6 +239,107 @@ where
     })
 }
 
+pub fn build_analysis_refinement_messages(
+    request: &AnalysisRefinementRequest,
+) -> Result<Vec<Value>, CommandError> {
+    let validation = ReverseRequest {
+        image_data_url: request.image_data_url.clone(),
+        requirements: request.requirements.clone(),
+        output_language: OutputLanguage::Bilingual,
+        detail_level: DetailLevel::Expert,
+    };
+    validate_reverse_request(&validation)?;
+    let payload = json!({
+        "currentAnalysis": request.current_analysis,
+        "lockedFields": request.locked_fields,
+        "customRequirements": request.requirements.trim(),
+    });
+    let payload_text = serde_json::to_string(&payload)
+        .map_err(|error| CommandError::new("refinement_invalid", error.to_string()))?;
+    if payload_text.len() > MAX_OPTIMIZATION_CONTEXT_BYTES {
+        return Err(CommandError::new("refinement_too_large", "校正内容超过安全限制"));
+    }
+    let system = "你是专业摄影测定校正师。重新检查用户图片，并结合 currentAnalysis 改进摄影测定。lockedFields 中的字段不得修改。只返回合法 JSON，不使用 Markdown 或解释，结构严格为 {\"analysis\":{\"subject\":\"\",\"scene\":\"\",\"composition\":\"\",\"lighting\":\"\",\"tonality\":\"\",\"colors\":\"\",\"palette\":[],\"materials\":\"\",\"style\":\"\",\"camera\":\"\",\"postProcessing\":\"\"}}。不要虚构不可见的相机型号或精确拍摄参数。";
+    Ok(vec![
+        json!({ "role": "system", "content": system }),
+        json!({
+            "role": "user",
+            "content": [
+                { "type": "text", "text": payload_text },
+                { "type": "image_url", "image_url": { "url": request.image_data_url.trim() } }
+            ]
+        }),
+    ])
+}
+
+pub async fn refine_analysis_stream<F>(
+    client: &reqwest::Client,
+    settings: &SettingsFile,
+    api_key: &str,
+    request: &AnalysisRefinementRequest,
+    cancellation: &CancellationToken,
+    mut on_event: F,
+) -> Result<AnalysisRefinementStreamOutcome, CommandError>
+where
+    F: FnMut(ApiStreamEvent) + Send,
+{
+    validate_service_settings(settings, api_key)?;
+    let started = Instant::now();
+    let messages = build_analysis_refinement_messages(request)?;
+    let endpoint = endpoint_from_base_url(&settings.base_url)?;
+    let outcome = match content_stream_attempt(
+        client, &endpoint, settings, api_key, &messages, true, started, cancellation, &mut on_event,
+    ).await {
+        Ok(outcome) => outcome,
+        Err(StreamAttemptError::Fatal(error)) => return Err(error),
+        Err(StreamAttemptError::Unsupported) => match content_stream_attempt(
+            client, &endpoint, settings, api_key, &messages, false, started, cancellation, &mut on_event,
+        ).await {
+            Ok(outcome) => outcome,
+            Err(StreamAttemptError::Fatal(error)) => return Err(error),
+            Err(StreamAttemptError::Unsupported) => {
+                on_event(ApiStreamEvent::Fallback);
+                let response = send_chat_with_client(
+                    client, &endpoint, settings, api_key, &messages, Some(cancellation),
+                ).await?;
+                content_outcome_from_chat_response(response, settings, started)?
+            }
+        },
+    };
+    let mut result: AnalysisRefinementOutput = parse_json_object(&outcome.content)?;
+    restore_locked_analysis(&mut result.analysis, &request.current_analysis, &request.locked_fields);
+    result.metadata = outcome.metadata;
+    Ok(AnalysisRefinementStreamOutcome {
+        result,
+        first_token_ms: outcome.first_token_ms,
+        used_fallback: outcome.used_fallback,
+    })
+}
+
+fn restore_locked_analysis(
+    next: &mut crate::models::Analysis,
+    current: &crate::models::Analysis,
+    locked: &[AnalysisFieldKey],
+) {
+    for field in locked {
+        match field {
+            AnalysisFieldKey::Subject => next.subject.clone_from(&current.subject),
+            AnalysisFieldKey::Scene => next.scene.clone_from(&current.scene),
+            AnalysisFieldKey::Composition => next.composition.clone_from(&current.composition),
+            AnalysisFieldKey::Lighting => next.lighting.clone_from(&current.lighting),
+            AnalysisFieldKey::Tonality => next.tonality.clone_from(&current.tonality),
+            AnalysisFieldKey::Colors => {
+                next.colors.clone_from(&current.colors);
+                next.palette.clone_from(&current.palette);
+            }
+            AnalysisFieldKey::Materials => next.materials.clone_from(&current.materials),
+            AnalysisFieldKey::Style => next.style.clone_from(&current.style),
+            AnalysisFieldKey::Camera => next.camera.clone_from(&current.camera),
+            AnalysisFieldKey::PostProcessing => next.post_processing.clone_from(&current.post_processing),
+        }
+    }
+}
+
 pub async fn test_connection(
     client: &reqwest::Client,
     settings: &SettingsFile,
@@ -1012,4 +1113,3 @@ fn is_stream_compatibility_status(status: StatusCode) -> bool {
 fn cancelled_error() -> CommandError {
     CommandError::new("cancelled", "已停止生成")
 }
-

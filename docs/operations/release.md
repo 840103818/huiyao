@@ -21,7 +21,7 @@ npm run package:macos
 
 ```text
 artifacts/release/绘钥.app
-artifacts/release/绘钥_1.0.2_aarch64.dmg
+artifacts/release/绘钥_2.0.0_aarch64.dmg
 ```
 
 `--fast` 仅用于已经完成全量检查后的重复打包：
@@ -37,10 +37,10 @@ npm run verify:release
 file artifacts/release/绘钥.app/Contents/MacOS/huiyao
 codesign --verify --deep --strict --verbose=2 artifacts/release/绘钥.app
 open -n artifacts/release/绘钥.app
-hdiutil verify artifacts/release/绘钥_1.0.2_aarch64.dmg
+hdiutil verify artifacts/release/绘钥_2.0.0_aarch64.dmg
 ```
 
-验证应用启动不是白屏，图标、版本、Bundle ID、最低系统版本和 arm64 架构正确；确认 `CFBundleDevelopmentRegion=zh_CN`、`CFBundleLocalizations` 包含 `zh-Hans`，WebKit 原生恢复按钮显示“重新载入”；检查项目、批量导入、队列暂停恢复、流式生成、预设、筛选、废纸篓、原图、设置、日志和 ZIP 导出。
+验证应用启动不是白屏，图标、版本、Bundle ID、最低系统版本和 arm64 架构正确；确认 `CFBundleDevelopmentRegion=zh_CN`、`CFBundleLocalizations` 包含 `zh-Hans`，WebKit 原生恢复按钮显示“重新载入”；检查项目、批量导入、队列暂停恢复、流式生成、统一修订、字段锁定、AI 重测、提示词同步、比较、预设、筛选、废纸篓、原图、设置、日志和 ZIP 导出。
 
 发布前从功能分支完成验证，由维护者人工合并到 `master`。打包脚本不得自动合并、变基或推送分支。
 

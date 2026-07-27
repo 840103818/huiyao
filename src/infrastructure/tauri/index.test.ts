@@ -57,7 +57,7 @@ describe("bridge helpers", () => {
     const structured = toStructuredResult(result, captureMetadata);
     expect(markdown).toContain("## 文件实拍信息");
     expect(markdown).toContain("Camera X");
-    expect(structured).toMatchObject({ schemaVersion: 1, kind: "huiyao.reverse-prompt", captureMetadata });
+    expect(structured).toMatchObject({ schemaVersion: 2, kind: "huiyao.reverse-prompt", captureMetadata });
     expect(JSON.stringify(structured)).not.toContain("gps");
   });
 

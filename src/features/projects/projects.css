@@ -41,6 +41,8 @@
 .trash-entry strong, .trash-entry span { display: block; }
 .trash-entry span { margin-top: 4px; color: var(--muted); font-size: 11px; }
 .preset-requirements { margin-top: 10px; }
+.preset-editor-field { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.preset-editor-field .arco-radio-group { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 
 .project-overview { position: relative; min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
 .overview-content { width: min(1080px, calc(100% - 64px)); margin: 0 auto; padding: 32px 0 44px; }

@@ -9,7 +9,8 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use crate::models::{
-    CommandError, ConnectionStatus, DetailLevel, OutputLanguage, PromptOptimizationOutput,
+    AnalysisFieldKey, AnalysisRefinementOutput, AnalysisRefinementRequest, CommandError,
+    ConnectionStatus, DetailLevel, OutputLanguage, PromptOptimizationOutput,
     PromptOptimizationRequest, PromptOptimizationTarget, ResultMetadata, ReverseRequest,
     ReverseResult, SettingsFile,
 };
@@ -122,6 +123,12 @@ pub struct StreamOutcome {
 
 pub struct OptimizationStreamOutcome {
     pub result: PromptOptimizationOutput,
+    pub first_token_ms: Option<u64>,
+    pub used_fallback: bool,
+}
+
+pub struct AnalysisRefinementStreamOutcome {
+    pub result: AnalysisRefinementOutput,
     pub first_token_ms: Option<u64>,
     pub used_fallback: bool,
 }

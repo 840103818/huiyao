@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::HashSet, fs, path::Path};
 
 use chrono::{Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
@@ -315,6 +315,20 @@ pub fn get_task(path: &Path, task_id: &str) -> Result<ProjectTask, CommandError>
     Ok(task)
 }
 
+pub fn rename_task(path: &Path, task_id: &str, title: &str) -> Result<(), CommandError> {
+    let title = validate_title(title, "任务名称")?;
+    let changed = open(path)?
+        .execute(
+            "UPDATE tasks SET title=?2,updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![task_id, title, Utc::now().to_rfc3339()],
+        )
+        .map_err(db_error)?;
+    if changed == 0 {
+        return Err(CommandError::new("task_missing", "任务不存在"));
+    }
+    Ok(())
+}
+
 pub fn task_original(
     path: &Path,
     task_id: &str,
@@ -399,6 +413,7 @@ pub fn complete_task(
     task_id: &str,
     result: &ReverseResult,
 ) -> Result<(), CommandError> {
+    validate_result(result)?;
     let result_json = bounded_json(
         result,
         MAX_RESULT_BYTES,
@@ -421,6 +436,7 @@ pub fn update_task_result(
     task_id: &str,
     result: &ReverseResult,
 ) -> Result<(), CommandError> {
+    validate_result(result)?;
     let result_json = bounded_json(
         result,
         MAX_RESULT_BYTES,
@@ -466,20 +482,106 @@ pub fn set_favorite(path: &Path, task_id: &str, favorite: bool) -> Result<(), Co
     Ok(())
 }
 
+pub fn set_favorite_many(
+    path: &Path,
+    task_ids: &[String],
+    favorite: bool,
+) -> Result<usize, CommandError> {
+    if task_ids.is_empty() {
+        return Ok(0);
+    }
+    let mut connection = open(path)?;
+    let transaction = connection.transaction().map_err(db_error)?;
+    let now = Utc::now().to_rfc3339();
+    let mut changed = 0;
+    for task_id in task_ids {
+        changed += transaction
+            .execute(
+                "UPDATE tasks SET favorite=?2,updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+                params![task_id, favorite, now],
+            )
+            .map_err(db_error)?;
+    }
+    if changed != task_ids.len() {
+        return Err(CommandError::new("task_missing", "部分任务不存在"));
+    }
+    transaction.commit().map_err(db_error)?;
+    Ok(changed)
+}
+
+pub fn update_tags_many(
+    path: &Path,
+    task_ids: &[String],
+    tags: &[String],
+    remove: bool,
+) -> Result<usize, CommandError> {
+    if task_ids.is_empty() {
+        return Ok(0);
+    }
+    let tags = normalize_tags(tags)?;
+    let mut connection = open(path)?;
+    let transaction = connection.transaction().map_err(db_error)?;
+    for task_id in task_ids {
+        let mut next = task_tags(&transaction, task_id)?;
+        if remove {
+            next.retain(|current| !tags.iter().any(|tag| tag.eq_ignore_ascii_case(current)));
+        } else {
+            for tag in &tags {
+                if !next.iter().any(|current| current.eq_ignore_ascii_case(tag)) {
+                    next.push(tag.clone());
+                }
+            }
+        }
+        let next = normalize_tags(&next)?;
+        set_tags_in_transaction(&transaction, task_id, &next)?;
+    }
+    transaction.commit().map_err(db_error)?;
+    Ok(task_ids.len())
+}
+
 pub fn set_tags(path: &Path, task_id: &str, tags: &[String]) -> Result<(), CommandError> {
+    let tags = normalize_tags(tags)?;
+    let mut connection = open(path)?;
+    let transaction = connection.transaction().map_err(db_error)?;
+    set_tags_in_transaction(&transaction, task_id, &tags)?;
+    transaction.commit().map_err(db_error)
+}
+
+fn normalize_tags(tags: &[String]) -> Result<Vec<String>, CommandError> {
     let tags = tags
         .iter()
-        .map(|value| value.trim())
+        .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>();
     if tags.len() > 12 {
         return Err(CommandError::new("tag_invalid", "每个任务最多 12 个标签"));
     }
-    if tags.iter().any(|value| value.chars().count() > 24) {
+    if tags
+        .iter()
+        .any(|value| value.chars().count() > 24 || value.chars().any(char::is_control))
+    {
         return Err(CommandError::new("tag_invalid", "标签最多 24 个字符"));
     }
-    let mut connection = open(path)?;
-    let transaction = connection.transaction().map_err(db_error)?;
+    Ok(tags)
+}
+
+fn set_tags_in_transaction(
+    transaction: &Transaction<'_>,
+    task_id: &str,
+    tags: &[String],
+) -> Result<(), CommandError> {
+    let exists = transaction
+        .query_row(
+            "SELECT 1 FROM tasks WHERE id=?1 AND deleted_at IS NULL",
+            params![task_id],
+            |_| Ok(()),
+        )
+        .optional()
+        .map_err(db_error)?
+        .is_some();
+    if !exists {
+        return Err(CommandError::new("task_missing", "任务不存在"));
+    }
     transaction
         .execute("DELETE FROM task_tags WHERE task_id=?1", params![task_id])
         .map_err(db_error)?;
@@ -504,7 +606,7 @@ pub fn set_tags(path: &Path, task_id: &str, tags: &[String]) -> Result<(), Comma
             )
             .map_err(db_error)?;
     }
-    transaction.commit().map_err(db_error)
+    Ok(())
 }
 
 pub fn move_tasks(path: &Path, ids: &[String], project_id: &str) -> Result<usize, CommandError> {
@@ -1002,12 +1104,78 @@ fn validate_task(task: &ProjectTask) -> Result<(), CommandError> {
         validate_preset_snapshot(snapshot)?;
     }
     if let Some(result) = task.result.as_ref() {
+        validate_result(result)?;
         bounded_json(
             result,
             MAX_RESULT_BYTES,
             "task_result_too_large",
             "任务结果超过 2 MiB 限制",
         )?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_result(result: &ReverseResult) -> Result<(), CommandError> {
+    if result.prompt_versions.len() > 8 || result.result_revisions.len() > 12 {
+        return Err(CommandError::new(
+            "result_revisions_invalid",
+            "任务结果包含过多派生修订",
+        ));
+    }
+    let revision_ids = result
+        .result_revisions
+        .iter()
+        .map(|revision| revision.id.as_str())
+        .collect::<HashSet<_>>();
+    if revision_ids.len() != result.result_revisions.len()
+        || result.result_revisions.iter().any(|revision| {
+            revision.id.is_empty()
+                || revision.id.chars().count() > 128
+                || revision.id.chars().any(char::is_control)
+                || revision.title.as_ref().is_some_and(|value| {
+                    value.trim().is_empty()
+                        || value.chars().count() > 32
+                        || value.chars().any(char::is_control)
+                })
+                || revision.requirements.chars().count() > 500
+                || revision.locked_fields.len() > 10
+                || revision.prompts.zh.chars().count() > 50_000
+                || revision.prompts.en.chars().count() > 50_000
+                || revision.negative_prompts.zh.chars().count() > 50_000
+                || revision.negative_prompts.en.chars().count() > 50_000
+                || revision.metadata.created_at.chars().count() > 64
+                || revision.source_revision_id.as_ref().is_some_and(|source| {
+                    source.chars().count() > 128
+                        || source.chars().any(char::is_control)
+                        || !revision_ids.contains(source.as_str())
+                })
+        })
+        || result
+            .active_result_revision_id
+            .as_ref()
+            .is_some_and(|active| !revision_ids.contains(active.as_str()))
+    {
+        return Err(CommandError::new(
+            "result_revisions_invalid",
+            "任务结果修订数据无效",
+        ));
+    }
+    for revision in &result.result_revisions {
+        let mut visited = HashSet::new();
+        let mut current = Some(revision.id.as_str());
+        while let Some(id) = current {
+            if !visited.insert(id) {
+                return Err(CommandError::new(
+                    "result_revisions_invalid",
+                    "任务结果修订关系存在循环",
+                ));
+            }
+            current = result
+                .result_revisions
+                .iter()
+                .find(|candidate| candidate.id == id)
+                .and_then(|candidate| candidate.source_revision_id.as_deref());
+        }
     }
     Ok(())
 }
@@ -1111,6 +1279,23 @@ mod tests {
             queue_position: 0,
             created_at: now.clone(),
             updated_at: now,
+        }
+    }
+
+    fn test_revision(id: &str) -> crate::models::ResultRevision {
+        crate::models::ResultRevision {
+            id: id.into(),
+            title: Some(format!("修订 {id}")),
+            origin: crate::models::ResultRevisionOrigin::ManualAnalysis,
+            source_revision_id: None,
+            analysis: Default::default(),
+            locked_fields: vec![],
+            prompts: Default::default(),
+            negative_prompts: Default::default(),
+            target: None,
+            requirements: String::new(),
+            sync_state: crate::models::PromptSyncState::Local,
+            metadata: Default::default(),
         }
     }
 
@@ -1355,6 +1540,53 @@ mod tests {
                 .unwrap_err()
                 .code,
             "task_status_invalid"
+        );
+    }
+
+    #[test]
+    fn task_organization_commands_update_selected_tasks_atomically() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        initialize(&path, &[]).unwrap();
+        let first = test_task("organize-1", TaskStatus::Ready, None);
+        let second = test_task("organize-2", TaskStatus::Ready, None);
+        insert_task(&path, &first, None).unwrap();
+        insert_task(&path, &second, None).unwrap();
+
+        rename_task(&path, &first.id, "  精修任务  ").unwrap();
+        let ids = vec![first.id.clone(), second.id.clone()];
+        assert_eq!(set_favorite_many(&path, &ids, true).unwrap(), 2);
+        assert_eq!(
+            update_tags_many(&path, &ids, &["商业".into(), "精修".into()], false).unwrap(),
+            2
+        );
+
+        let renamed = get_task(&path, &first.id).unwrap();
+        let tagged = get_task(&path, &second.id).unwrap();
+        assert_eq!(renamed.title, "精修任务");
+        assert!(renamed.favorite && tagged.favorite);
+        assert_eq!(renamed.tags, vec!["商业", "精修"]);
+        assert_eq!(tagged.tags, vec!["商业", "精修"]);
+    }
+
+    #[test]
+    fn rejects_more_than_twelve_result_revisions() {
+        let mut result = ReverseResult::default();
+        result.result_revisions = (0..13)
+            .map(|index| test_revision(&format!("revision-{index}")))
+            .collect();
+
+        let error = validate_result(&result).unwrap_err();
+        assert_eq!(error.code, "result_revisions_invalid");
+
+        let mut first = test_revision("first");
+        first.source_revision_id = Some("second".into());
+        let mut second = test_revision("second");
+        second.source_revision_id = Some("first".into());
+        result.result_revisions = vec![first, second];
+        assert_eq!(
+            validate_result(&result).unwrap_err().code,
+            "result_revisions_invalid"
         );
     }
 }

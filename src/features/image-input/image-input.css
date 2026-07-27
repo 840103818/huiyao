@@ -60,8 +60,8 @@
 .privacy-note i { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
 
 .processing-status { display: grid; min-width: 0; gap: 9px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 7px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 10px 26px rgba(8, 8, 10, .1); backdrop-filter: blur(16px); }
-.image-stage > .processing-status { position: absolute; z-index: 5; right: 12px; bottom: 12px; left: 12px; border-color: rgba(255, 255, 255, .1); background: rgba(25, 25, 28, .88); color: #f2f2f4; }
-.image-stage > .processing-status.is-compact { right: 14px; bottom: 14px; left: 14px; grid-template-columns: minmax(140px, auto) minmax(100px, 1fr); align-items: center; gap: 7px 16px; padding: 9px 11px; }
+.image-stage > .processing-status { position: absolute; z-index: 5; right: 0; bottom: 0; left: 0; border-width: 1px 0 0; border-radius: 0; border-color: rgba(255, 255, 255, .1); background: rgba(25, 25, 28, .9); color: #f2f2f4; box-shadow: none; }
+.image-stage > .processing-status.is-compact { right: 0; bottom: 0; left: 0; grid-template-columns: minmax(140px, auto) minmax(100px, 1fr); align-items: center; gap: 6px 14px; padding: 7px 10px; }
 .processing-status.is-compact .processing-status-head { grid-column: 1; }
 .processing-status.is-compact .processing-progress { grid-column: 2; }
 .processing-status.is-compact .processing-facts { grid-column: 1 / -1; min-height: 0; }
