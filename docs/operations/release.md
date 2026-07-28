@@ -65,13 +65,18 @@ git push origin v2.0.0
 使用 GitHub CLI 发布，并将 CHANGELOG 中当前版本内容作为发布说明：
 
 ```bash
+ditto artifacts/release/绘钥_2.0.0_aarch64.dmg \
+  artifacts/release/Huiyao_2.0.0_aarch64.dmg
+shasum -a 256 artifacts/release/Huiyao_2.0.0_aarch64.dmg \
+  > artifacts/release/Huiyao_2.0.0_aarch64.dmg.sha256
 gh release create v2.0.0 \
-  artifacts/release/绘钥_2.0.0_aarch64.dmg \
+  artifacts/release/Huiyao_2.0.0_aarch64.dmg \
+  artifacts/release/Huiyao_2.0.0_aarch64.dmg.sha256 \
   --title "绘钥 2.0.0" \
   --notes-file artifacts/release/RELEASE_NOTES.md
 ```
 
-发布后核对标签目标提交、DMG 文件名和大小、下载可用性及 Release 是否为正式版本。不要上传未签名的中间产物、用户数据、日志或诊断文件。
+本地产物保留中文应用名；GitHub 资产使用 ASCII 文件名，避免上传接口清理非 ASCII 字符。发布后核对标签目标提交、DMG 文件名和大小、SHA-256、下载可用性及 Release 是否为正式版本。不要上传未签名的中间产物、用户数据、日志或诊断文件。
 
 ## 签名说明
 

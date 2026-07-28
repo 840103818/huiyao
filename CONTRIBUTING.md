@@ -4,8 +4,9 @@
 
 1. 从最新 `master` 创建功能分支。
 2. 保持改动聚焦，并为行为变化补充测试。
-3. 提交前运行 `npm run check` 和 `git diff --check`。
-4. 在 Pull Request 中说明用户影响、验证方式和界面截图。
+3. 同步对应用户说明和技术说明；页面变化需覆盖脱敏视觉基线。
+4. 提交前运行 `npm run check`、`git diff --check` 和 `codegraph sync`。
+5. 在 Pull Request 中说明用户影响、验证方式和界面截图。
 
 推荐提交信息使用以下前缀：
 
