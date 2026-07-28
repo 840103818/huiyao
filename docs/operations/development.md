@@ -8,11 +8,17 @@
 - 生产打包需要 `ld64.lld`、Xcode Command Line Tools 和 Tauri 系统依赖。
 
 ```bash
+xcode-select --install
+nvm install
+nvm use
 npm ci
-rustup update stable
+rustup toolchain install stable --profile minimal
+rustup default stable
 rustup target add aarch64-apple-darwin
 rustup component add rustfmt
 ```
+
+仓库 `.nvmrc` 使用 Node.js 22。若生产打包环境缺少 `ld64.lld`，可安装 Homebrew LLVM，并将 `/opt/homebrew/opt/llvm/bin` 加入 `PATH`。完整的新开发机步骤和命令说明参见根目录 [README](../../README.md#开发环境)。
 
 `libsqlite3-sys 0.38` 使用 Rust 1.95 稳定的 `cfg_select!`。日常检查读取当前 `PATH` 中的工具链；macOS 发布脚本固定使用官方 `rustup stable`，并在构建前检查版本，避免 Homebrew 标准库的部署目标高于 macOS 12。运行 `rustup run stable rustc --version` 可确认实际发布版本。
 
