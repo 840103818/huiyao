@@ -56,6 +56,7 @@ export function ResultPanel({ result, generationState, captureMetadata, onRefine
       : generationState === "fallback" ? "兼容解析"
         : loading ? "实时测定" : "待测定";
   const badgeStatus = generationState === "complete" ? "success" : loading ? "processing" : "default";
+  const showPanelStatus = generationState !== "complete";
   const captureCount = captureRows.filter(([key]) => Boolean(captureMetadata?.[key])).length;
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export function ResultPanel({ result, generationState, captureMetadata, onRefine
     <section className={`analysis-panel panel ${loading ? "is-loading" : ""}`}>
       <header className="panel-header">
         <div className="analysis-title"><h2>摄影测定</h2><Tag size="small">AI 视觉推断</Tag></div>
-        <div className="analysis-header-actions"><Badge status={badgeStatus} text={status} />{onRefine ? <Button size="mini" icon={<IconEdit />} onClick={onRefine}>校正</Button> : null}</div>
+        <div className="analysis-header-actions">{showPanelStatus ? <Badge status={badgeStatus} text={status} /> : null}{onRefine ? <Button size="mini" icon={<IconEdit />} onClick={onRefine}>校正</Button> : null}</div>
       </header>
       <div className="analysis-subhead">
         <Radio.Group type="button" size="mini" value={activeGroup} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">

@@ -1,5 +1,5 @@
-import { Alert, Button, Drawer, Dropdown, Form, Input, Menu, Popconfirm, Select, Tabs, Tag, Tooltip } from "@arco-design/web-react";
-import { IconCheck, IconDelete, IconEdit, IconEye, IconLock, IconRefresh, IconRobot, IconSave, IconUnlock } from "@arco-design/web-react/icon";
+import { Alert, Button, Drawer, Dropdown, Form, Input, Menu, Modal, Select, Tabs, Tag, Tooltip } from "@arco-design/web-react";
+import { IconCheck, IconDelete, IconEdit, IconEye, IconLock, IconMore, IconRefresh, IconRobot, IconSave, IconUnlock } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cancelReversePrompt, getCommandFailure, runAnalysisRefinement, runPromptOptimization } from "../../infrastructure/tauri";
 import type { Analysis, AnalysisFieldKey, CaptureMetadata, CommandFailure, ResultRevision, ReverseResult, ReverseStreamEvent } from "../../shared/contracts";
@@ -36,6 +36,8 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
   const view = result ? activeResultView(result) : undefined;
   const [editorOpen, setEditorOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(previewInteraction === "compare");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [revisionMenuOpen, setRevisionMenuOpen] = useState(false);
   const [promptEditorOpen, setPromptEditorOpen] = useState(false);
   const [promptTitle, setPromptTitle] = useState("");
   const [promptDraft, setPromptDraft] = useState({ zh: "", en: "", negativeZh: "", negativeEn: "" });
@@ -61,6 +63,7 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
 
   useEffect(() => { lockedRef.current = locked; }, [locked]);
   useEffect(() => () => refinementPrinterRef.current.cancel(), []);
+  useEffect(() => { if (deleteConfirmOpen) setRevisionMenuOpen(false); }, [deleteConfirmOpen]);
 
   const options = useMemo(() => [
     { label: "原始结果", value: "base" },
@@ -245,13 +248,15 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
   };
 
   const moreMenu = <Menu onClickMenuItem={(key) => {
+    setRevisionMenuOpen(false);
     if (key === "compare") {
       setCompareLeft(active?.sourceRevisionId ?? "base");
       setCompareRight(active?.id ?? revisions.at(-1)?.id ?? "base");
       setCompareOpen(true);
     }
     if (key === "prompt-edit") openPromptEditor();
-  }}><Menu.Item key="prompt-edit" disabled={!result || !isFinal || revisions.length >= MAX_RESULT_REVISIONS}><IconEdit />编辑提示词副本</Menu.Item><Menu.Item key="compare" disabled={!revisions.length}><IconEye />比较修订</Menu.Item></Menu>;
+    if (key === "delete" && active) setDeleteConfirmOpen(true);
+  }}><Menu.Item key="prompt-edit" disabled={!result || !isFinal || revisions.length >= MAX_RESULT_REVISIONS}><IconEdit />编辑提示词副本</Menu.Item><Menu.Item key="compare" disabled={!revisions.length}><IconEye />比较修订</Menu.Item><Menu.Item className="revision-delete-menu-item" key="delete" disabled={!active}><IconDelete />删除当前修订</Menu.Item></Menu>;
   const removalCount = active ? revisionRemovalIds(revisions, active.id).size : 0;
   const errorContent = error ? <div className="revision-error-content">
     <span>{error.message}（{error.code}）</span>
@@ -271,11 +276,7 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
         </div>
         <div className="revision-actions">
           {active && active.syncState !== "synced" ? <Button size="mini" type="primary" icon={<IconRefresh />} loading={syncing} disabled={!hasApiKey} onClick={() => void syncPrompts()}>同步提示词</Button> : null}
-          <Dropdown trigger="click" position="br" droplist={moreMenu}><Button size="mini" type="text" aria-label="修订更多操作">•••</Button></Dropdown>
-          {active ? <Popconfirm title="删除当前修订？" content={removalCount > 1 ? `将同时删除 ${removalCount - 1} 个依赖它的后续修订，此操作无法撤销。` : "此操作无法撤销。"} okText="删除" cancelText="取消" onOk={async () => {
-            if (!result) return;
-            try { await persist(removeRevision(result, active.id)); } catch (cause) { setError(getCommandFailure(cause)); }
-          }}><Tooltip content="删除当前修订"><Button size="mini" type="text" status="danger" icon={<IconDelete />} aria-label="删除当前修订" /></Tooltip></Popconfirm> : null}
+          <Dropdown trigger="click" position="br" droplist={moreMenu} popupVisible={revisionMenuOpen} onVisibleChange={setRevisionMenuOpen}><Button size="mini" type="text" icon={<IconMore />} aria-label="修订更多操作" /></Dropdown>
         </div>
       </div>
       {error && !editorOpen ? <Alert className="revision-error" type="error" content={errorContent} closable onClose={() => setError(undefined)} /> : null}
@@ -308,6 +309,26 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
           {!imageDataUrl ? <small className="refinement-hint">当前任务没有可用原图，只能进行人工校正。</small> : !hasApiKey ? <small className="refinement-hint">配置模型服务后可使用 AI 重测，本地草稿仍可保存。</small> : null}
         </Form>
       </Drawer>
+      <Modal
+        title="删除当前修订？"
+        visible={deleteConfirmOpen}
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ status: "danger" }}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onOk={async () => {
+          if (!result || !active) return;
+          try {
+            await persist(removeRevision(result, active.id));
+            setDeleteConfirmOpen(false);
+          } catch (cause) {
+            setError(getCommandFailure(cause));
+            setDeleteConfirmOpen(false);
+          }
+        }}
+      >
+        <p className="revision-delete-message">{removalCount > 1 ? `将同时删除 ${removalCount - 1} 个依赖它的后续修订，此操作无法撤销。` : "此操作无法撤销。"}</p>
+      </Modal>
       <Drawer className="revision-compare-drawer" width={900} title="结果修订比较" visible={compareOpen} footer={null} unmountOnExit onCancel={() => setCompareOpen(false)}>
         <div className="compare-toolbar"><Select value={compareLeft} options={options} onChange={setCompareLeft} /><span>对比</span><Select value={compareRight} options={options} onChange={setCompareRight} /></div>
         <Tabs activeTab={compareTab} onChange={setCompareTab} type="line">

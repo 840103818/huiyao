@@ -42,7 +42,8 @@ describe("RevisionBar", () => {
     const onResultChange = vi.fn().mockResolvedValue(undefined);
     render(<RevisionBar result={revised} isFinal hasApiKey onResultChange={onResultChange} onCopy={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "删除当前修订" }));
+    fireEvent.click(screen.getByRole("button", { name: "修订更多操作" }));
+    fireEvent.click(await screen.findByText("删除当前修订"));
     expect(await screen.findByText(/同时删除 1 个依赖它的后续修订/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
     await waitFor(() => expect(onResultChange).toHaveBeenCalledTimes(1));
