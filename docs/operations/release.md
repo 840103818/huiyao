@@ -29,7 +29,7 @@ npm run package:macos
 
 ```text
 artifacts/release/绘钥.app
-artifacts/release/绘钥_2.0.0_aarch64.dmg
+artifacts/release/绘钥_2.0.1_aarch64.dmg
 ```
 
 `--fast` 仅用于已经完成全量检查后的重复打包：
@@ -45,7 +45,7 @@ npm run verify:release
 file artifacts/release/绘钥.app/Contents/MacOS/huiyao
 codesign --verify --deep --strict --verbose=2 artifacts/release/绘钥.app
 open -n artifacts/release/绘钥.app
-hdiutil verify artifacts/release/绘钥_2.0.0_aarch64.dmg
+hdiutil verify artifacts/release/绘钥_2.0.1_aarch64.dmg
 ```
 
 验证应用启动不是白屏，图标、版本、Bundle ID、最低系统版本和 arm64 架构正确；确认 `CFBundleDevelopmentRegion=zh_CN`、`CFBundleLocalizations` 包含 `zh-Hans`，WebKit 原生恢复按钮显示“重新载入”；检查项目、批量导入、队列暂停恢复、流式生成、统一修订、字段锁定、AI 重测、提示词同步、比较、预设、筛选、废纸篓、原图、设置、日志和 ZIP 导出。
@@ -57,22 +57,25 @@ hdiutil verify artifacts/release/绘钥_2.0.0_aarch64.dmg
 仅在 `master` 的提交、安装包和版本校验均通过后创建带注释标签：
 
 ```bash
-git tag -a v2.0.0 -m "绘钥 2.0.0"
+git tag -a v2.0.1 -m "绘钥 2.0.1"
 git push origin master
-git push origin v2.0.0
+git push origin v2.0.1
 ```
 
 使用 GitHub CLI 发布，并将 CHANGELOG 中当前版本内容作为发布说明：
 
 ```bash
-ditto artifacts/release/绘钥_2.0.0_aarch64.dmg \
-  artifacts/release/Huiyao_2.0.0_aarch64.dmg
-shasum -a 256 artifacts/release/Huiyao_2.0.0_aarch64.dmg \
-  > artifacts/release/Huiyao_2.0.0_aarch64.dmg.sha256
-gh release create v2.0.0 \
-  artifacts/release/Huiyao_2.0.0_aarch64.dmg \
-  artifacts/release/Huiyao_2.0.0_aarch64.dmg.sha256 \
-  --title "绘钥 2.0.0" \
+ditto artifacts/release/绘钥_2.0.1_aarch64.dmg \
+  artifacts/release/Huiyao_2.0.1_aarch64.dmg
+(
+  cd artifacts/release
+  shasum -a 256 Huiyao_2.0.1_aarch64.dmg \
+    > Huiyao_2.0.1_aarch64.dmg.sha256
+)
+gh release create v2.0.1 \
+  artifacts/release/Huiyao_2.0.1_aarch64.dmg \
+  artifacts/release/Huiyao_2.0.1_aarch64.dmg.sha256 \
+  --title "绘钥 2.0.1" \
   --notes-file artifacts/release/RELEASE_NOTES.md
 ```
 
