@@ -21,3 +21,6 @@
 - 前端构建、Vitest 和 Rust 测试已在功能开发中持续执行。
 - 视觉基线使用开发环境脱敏预览数据生成，不调用模型、Keychain、SQLite 或原图接口。
 - 最终验证以分支提交前的 `npm run check`、依赖审计、`git diff --check` 和 `codegraph sync` 结果为准。
+- 2026-07-28：完成当前文档重组，新增文档中心和专业精修独立说明，并补齐 GitHub Release 流程。
+- 2026-07-28：`npm run check` 通过，包含 23 个 Vitest 文件、110 个前端测试和 68 个 Rust 测试；npm 审计为 0 个漏洞。
+- 2026-07-28：Rust 审计无阻断漏洞，保留 17 个已允许的传递依赖告警；`git diff --check` 与 `codegraph sync` 通过。

@@ -81,22 +81,14 @@ artifacts/             本地发布、视觉检查和测试产物，不提交 Gi
 
 ## 文档导航
 
-- [产品与使用说明](docs/product/overview.md)
-- [版本更新记录](CHANGELOG.md)
-- [项目工作台操作说明](docs/product/workspace.md)
-- [界面设计系统](docs/design/ui-system.md)
-- [交互规范](docs/design/interaction.md)
-- [总体架构](docs/engineering/architecture.md)
-- [前端架构](docs/engineering/frontend.md)
-- [后端架构](docs/engineering/backend.md)
-- [IPC 契约](docs/engineering/ipc-contracts.md)
-- [数据迁移](docs/engineering/data-migration.md)
-- [安全边界](docs/engineering/security.md)
-- [测试策略](docs/engineering/testing.md)
-- [开发指南](docs/operations/development.md)
-- [发布指南](docs/operations/release.md)
-- [故障排查](docs/operations/troubleshooting.md)
-- [架构决策记录](docs/adr/README.md)
+完整索引和分角色阅读路径参见[文档中心](docs/README.md)。
+
+| 路径 | 入口 |
+| --- | --- |
+| 使用绘钥 | [产品说明](docs/product/overview.md) · [项目工作台](docs/product/workspace.md) · [专业精修](docs/product/refinement.md) |
+| 理解设计 | [设计系统](docs/design/ui-system.md) · [交互规范](docs/design/interaction.md) · [界面基线](docs/assets/ui/current/README.md) |
+| 参与开发 | [总体架构](docs/engineering/architecture.md) · [开发指南](docs/operations/development.md) · [测试策略](docs/engineering/testing.md) |
+| 构建发布 | [发布指南](docs/operations/release.md) · [故障排查](docs/operations/troubleshooting.md) · [版本记录](CHANGELOG.md) |
 
 ## 安全与数据
 
