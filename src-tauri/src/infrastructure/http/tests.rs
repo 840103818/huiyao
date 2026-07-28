@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Analysis, DetailLevel, OutputLanguage, Prompts, ThemeMode};
+    use crate::models::{Analysis, AnalysisFieldKey, AnalysisRefinementRequest, DetailLevel, OutputLanguage, Prompts, ThemeMode};
     use httpmock::prelude::*;
 
     fn settings(base_url: String) -> SettingsFile {
@@ -41,6 +41,15 @@ mod tests {
             target,
             requirements: "保持真实材质".into(),
             aspect_ratio: Some("3:2".into()),
+        }
+    }
+
+    fn refinement_request() -> AnalysisRefinementRequest {
+        AnalysisRefinementRequest {
+            image_data_url: image_request().image_data_url,
+            current_analysis: Analysis { subject: "锁定主体".into(), lighting: "原始光线".into(), ..Default::default() },
+            locked_fields: vec![AnalysisFieldKey::Subject],
+            requirements: "复核光线".into(),
         }
     }
 
@@ -117,6 +126,24 @@ mod tests {
             build_optimization_messages(&optimization_request(PromptOptimizationTarget::Sdxl))
                 .unwrap();
         assert!(serde_json::to_string(&sdxl).unwrap().contains("负面提示词"));
+    }
+
+    #[test]
+    fn refinement_messages_resend_image_and_declare_locked_fields() {
+        let messages = build_analysis_refinement_messages(&refinement_request()).unwrap();
+        let body = serde_json::to_string(&messages).unwrap();
+        assert!(body.contains("image_url"));
+        assert!(body.contains("lockedFields"));
+        assert!(body.contains("subject"));
+    }
+
+    #[test]
+    fn refinement_restores_locked_analysis_fields() {
+        let current = refinement_request().current_analysis;
+        let mut next = Analysis { subject: "模型改写".into(), lighting: "新的侧光".into(), ..Default::default() };
+        restore_locked_analysis(&mut next, &current, &[AnalysisFieldKey::Subject]);
+        assert_eq!(next.subject, "锁定主体");
+        assert_eq!(next.lighting, "新的侧光");
     }
 
     #[tokio::test]

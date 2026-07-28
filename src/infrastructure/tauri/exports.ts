@@ -13,12 +13,13 @@ export async function exportResult(result: ReverseResult, format: ResultExportFo
 }
 
 export function toMarkdown(result: ReverseResult, captureMetadata?: CaptureMetadata): string {
-  const { analysis } = result;
-  const active = getActivePromptVersion(result);
-  const prompts = active?.prompts ?? result.prompts;
-  const negativePrompts = active?.negativePrompts;
-  const metadata = active?.metadata ?? result.metadata;
-  const negativeSection = active?.target === "sdxl" && negativePrompts
+  const active = getActiveResultRevision(result);
+  const legacy = active ? undefined : getLegacyPromptVersion(result);
+  const analysis = active?.analysis ?? result.analysis;
+  const prompts = active?.prompts ?? legacy?.prompts ?? result.prompts;
+  const negativePrompts = active?.negativePrompts ?? legacy?.negativePrompts;
+  const metadata = active?.metadata ?? legacy?.metadata ?? result.metadata;
+  const negativeSection = negativePrompts && (negativePrompts.zh || negativePrompts.en)
     ? `\n## 中文负面提示词\n\n${negativePrompts.zh}\n\n## 英文负面提示词\n\n${negativePrompts.en}\n` : "";
   const captureSection = captureMetadata ? `
 ## 文件实拍信息
@@ -74,16 +75,25 @@ export function toPromptText(result: ReverseResult): string {
 
 export function toStructuredResult(result: ReverseResult, captureMetadata?: CaptureMetadata) {
   const active = getActivePromptVersion(result);
+  const revision = getActiveResultRevision(result);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "huiyao.reverse-prompt",
     captureMetadata: captureMetadata ?? null,
-    analysis: result.analysis,
+    analysis: revision?.analysis ?? result.analysis,
+    activeRevision: revision ? {
+      id: revision.id,
+      origin: revision.origin,
+      sourceRevisionId: revision.sourceRevisionId ?? null,
+      title: revision.title ?? null,
+      lockedFields: revision.lockedFields,
+      syncState: revision.syncState,
+    } : null,
     activePrompt: {
       id: active?.id ?? "base",
       origin: active?.origin ?? "base",
       target: active?.target ?? "general",
-      title: active?.title ?? (active ? targetLabelsForExport[active.target] : "原始反推版本"),
+      title: active?.title ?? (active?.target ? targetLabelsForExport[active.target] : "原始反推版本"),
       prompts: active?.prompts ?? result.prompts,
       negativePrompts: active?.negativePrompts ?? { zh: "", en: "" },
       metadata: active?.metadata ?? result.metadata,
@@ -113,6 +123,14 @@ export function formatGeneratedAt(value: string): string {
 }
 
 export function getActivePromptVersion(result: ReverseResult) {
+  return getActiveResultRevision(result) ?? getLegacyPromptVersion(result);
+}
+
+export function getActiveResultRevision(result: ReverseResult) {
+  return result.resultRevisions?.find((revision) => revision.id === result.activeResultRevisionId);
+}
+
+function getLegacyPromptVersion(result: ReverseResult) {
   return result.promptVersions?.find((version) => version.id === result.activePromptVersionId);
 }
 

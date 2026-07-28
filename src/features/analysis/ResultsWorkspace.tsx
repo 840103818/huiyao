@@ -3,6 +3,8 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import type { CaptureMetadata, CommandFailure, GenerationState, ResultExportFormat, ReverseResult } from "../../shared/contracts";
 import { PromptPanel } from "../prompts/PromptPanel";
 import { ResultPanel } from "./ResultPanel";
+import { RevisionBar } from "./RevisionBar";
+import { activeResultView } from "./revisions";
 
 interface ResultsWorkspaceProps {
   result: ReverseResult | null;
@@ -12,6 +14,8 @@ interface ResultsWorkspaceProps {
   canRegenerate: boolean;
   aspectRatio?: string;
   captureMetadata?: CaptureMetadata;
+  imageDataUrl?: string;
+  hasApiKey?: boolean;
   onCopy: (text: string) => void;
   onCopyFull?: (result: ReverseResult) => void;
   onRegenerate: () => void;
@@ -25,6 +29,7 @@ interface ResultsWorkspaceProps {
   onSaveHistory?: () => void;
   initialSplitPercent?: number;
   onSplitChange?: (percent?: number) => void;
+  previewInteraction?: "refinement" | "compare";
 }
 
 const DIVIDER_HEIGHT = 10;
@@ -36,7 +41,9 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
   const initialSplitAppliedRef = useRef(false);
   const [analysisHeight, setAnalysisHeight] = useState<number>();
   const [manual, setManual] = useState(initialSplitPercent !== undefined);
+  const [refineRequestId, setRefineRequestId] = useState(props.previewInteraction === "refinement" ? 1 : 0);
   const streaming = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
+  const displayResult = result ? activeResultView(result) : null;
 
   const limits = useCallback(() => {
     const total = columnRef.current?.clientHeight ?? 0;
@@ -156,12 +163,14 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
   const splitPercent = available && analysisHeight ? Math.round(analysisHeight / available * 100) : 42;
 
   return (
-    <div
-      ref={columnRef}
-      className={`result-column ${manual ? "is-manual" : "is-auto"}`}
-      style={analysisHeight ? { "--analysis-height": `${analysisHeight}px` } as React.CSSProperties : undefined}
-    >
-      <ResultPanel result={result} generationState={generationState} captureMetadata={props.captureMetadata} />
+    <div className="result-workspace">
+      <RevisionBar result={result} isFinal={props.isFinal} imageDataUrl={props.imageDataUrl} hasApiKey={props.hasApiKey} captureMetadata={props.captureMetadata} onResultChange={props.onResultChange} onCopy={props.onCopy} onOpenLogs={props.onOpenLogs} onExportDiagnostic={props.onExportDiagnostic} refineRequestId={refineRequestId} previewInteraction={props.previewInteraction === "compare" ? "compare" : undefined} />
+      <div
+        ref={columnRef}
+        className={`result-column ${manual ? "is-manual" : "is-auto"}`}
+        style={analysisHeight ? { "--analysis-height": `${analysisHeight}px` } as React.CSSProperties : undefined}
+      >
+      <ResultPanel result={displayResult} generationState={generationState} captureMetadata={props.captureMetadata} onRefine={() => setRefineRequestId((value) => value + 1)} />
       <div
         className="result-divider"
         role="separator"
@@ -182,6 +191,7 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
         <span aria-hidden="true" />
       </div>
       <PromptPanel {...props} />
+      </div>
     </div>
   );
 }

@@ -76,6 +76,8 @@ export interface ReverseResult {
   metadata: ResultMetadata;
   promptVersions?: PromptVersion[];
   activePromptVersionId?: string;
+  resultRevisions?: ResultRevision[];
+  activeResultRevisionId?: string;
 }
 
 export type PromptOptimizationTarget = "general" | "midjourney" | "flux" | "sdxl";
@@ -106,6 +108,37 @@ export interface PromptOptimizationRequest {
 export interface PromptOptimizationOutput {
   prompts: Prompts;
   negativePrompts: Prompts;
+  metadata: ResultMetadata;
+}
+
+export type AnalysisFieldKey = "subject" | "scene" | "composition" | "lighting" | "tonality" | "colors" | "materials" | "style" | "camera" | "postProcessing";
+export type ResultRevisionOrigin = "manualAnalysis" | "aiRefinement" | "promptEdit" | "optimization";
+export type PromptSyncState = "local" | "syncing" | "synced" | "failed";
+
+export interface ResultRevision {
+  id: string;
+  title?: string;
+  origin: ResultRevisionOrigin;
+  sourceRevisionId?: string;
+  analysis: Analysis;
+  lockedFields: AnalysisFieldKey[];
+  prompts: Prompts;
+  negativePrompts: Prompts;
+  target?: PromptOptimizationTarget;
+  requirements: string;
+  syncState: PromptSyncState;
+  metadata: ResultMetadata;
+}
+
+export interface AnalysisRefinementRequest {
+  imageDataUrl: string;
+  currentAnalysis: Analysis;
+  lockedFields: AnalysisFieldKey[];
+  requirements: string;
+}
+
+export interface AnalysisRefinementOutput {
+  analysis: Analysis;
   metadata: ResultMetadata;
 }
 

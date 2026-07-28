@@ -64,6 +64,9 @@ import {
   saveReversePreset,
   setProjectTaskFavorite,
   setProjectTaskTags,
+  setProjectTasksFavorite,
+  updateProjectTasksTags,
+  renameProjectTask,
   updateProjectTaskStatus,
   updateProjectTaskResult,
 } from "../infrastructure/tauri";
@@ -112,12 +115,17 @@ const DEFAULT_SETTINGS: PublicSettings = {
 const EMPTY_BATCH_PROGRESS: BatchProgress = { total: 0, ready: 0, queued: 0, running: 0, completed: 0, failed: 0, paused: 0 };
 
 export default function App() {
-  const previewMode = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("workspace-preview") : null;
+  const previewParams = import.meta.env.DEV ? new URLSearchParams(window.location.search) : null;
+  const previewMode = previewParams?.get("workspace-preview") ?? null;
+  const previewTheme = previewParams?.get("theme-preview");
+  const previewInteractionValue = previewParams?.get("interaction-preview");
+  const previewInteraction = previewInteractionValue === "refinement" || previewInteractionValue === "compare" ? previewInteractionValue : undefined;
+  const previewThemeMode: ThemeMode | undefined = previewTheme === "light" || previewTheme === "dark" ? previewTheme : undefined;
   const workspaceUi = isDesktopApp() || Boolean(previewMode);
   const [messageApi, messageContext] = Message.useMessage();
   const messageApiRef = useRef(messageApi);
   messageApiRef.current = messageApi;
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState({ ...DEFAULT_SETTINGS, theme: previewThemeMode ?? DEFAULT_SETTINGS.theme });
   const [view, setView] = useState<AppView>("workspace");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
@@ -178,7 +186,7 @@ export default function App() {
       if (partial) setResult(partial);
     });
   }
-  const themeOverrideRef = useRef<ThemeMode | undefined>(undefined);
+  const themeOverrideRef = useRef<ThemeMode | undefined>(previewThemeMode);
   const requestStartedAtRef = useRef(0);
   const firstTokenRecordedRef = useRef(false);
   const cancelRequestedRef = useRef(false);
@@ -292,6 +300,24 @@ export default function App() {
         },
         metadata: { model: "gpt-4.1-mini", elapsedMs: 6_400, totalTokens: 1268, createdAt: now },
       };
+      previewResult.resultRevisions = [
+        {
+          id: "preview-revision-analysis", title: "高光与镜头校正", origin: "manualAnalysis",
+          analysis: { ...previewResult.analysis, lighting: "左上柔光箱压低一档，右后方窄条灯只保留瓶肩轮廓。", camera: "采用 EXIF 实拍参数：85mm，f/8，1/125s，ISO 100。" },
+          lockedFields: ["lighting", "camera"], prompts: previewResult.prompts,
+          negativePrompts: { zh: "", en: "" }, requirements: "压低瓶肩高光并采用实拍参数", syncState: "synced",
+          metadata: { ...previewResult.metadata, elapsedMs: 0, createdAt: now },
+        },
+        {
+          id: "preview-revision-prompt", title: "商业平台精修", origin: "optimization", sourceRevisionId: "preview-revision-analysis",
+          analysis: { ...previewResult.analysis, lighting: "左上柔光箱压低一档，右后方窄条灯只保留瓶肩轮廓。", camera: "采用 EXIF 实拍参数：85mm，f/8，1/125s，ISO 100。" },
+          lockedFields: ["lighting", "camera"], prompts: { ...previewResult.prompts, zh: `${previewResult.prompts.zh} 控制瓶肩高光，保留右后方细窄轮廓光。` },
+          negativePrompts: { zh: "过曝高光，塑料质感，品牌文字", en: "clipped highlights, plastic texture, brand text" },
+          target: "sdxl", requirements: "保留真实材质并降低高光", syncState: "synced",
+          metadata: { ...previewResult.metadata, elapsedMs: 2_100, createdAt: now },
+        },
+      ];
+      previewResult.activeResultRevisionId = "preview-revision-prompt";
       const previewTasks: ProjectTask[] = [
         { id: "preview-1", projectId: previewProject.id, title: "金属香氛瓶", fileName: "product-01.jpg", status: "ready", favorite: true, tags: ["商业", "静物"], originalImage: { fileName: "product-01.jpg", mimeType: "image/jpeg", size: 2_400_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 0, createdAt: now, updatedAt: now },
         { id: "preview-2", projectId: previewProject.id, title: "玻璃护肤套装", fileName: "product-02.jpg", status: "completed", favorite: false, tags: ["棚拍"], originalImage: { fileName: "product-02.jpg", mimeType: "image/jpeg", size: 3_100_000, storedAt: now, encryptionVersion: 1 }, queuePosition: 1, result: previewResult, createdAt: now, updatedAt: now },
@@ -1130,6 +1156,30 @@ export default function App() {
     await setProjectTaskTags(task.id, tags); if (activeProjectId) await reloadProjectTasks(activeProjectId); showNotice("标签已更新");
   }, [activeProjectId, reloadProjectTasks, showNotice]);
 
+  const handleRenameTask = useCallback(async (task: ProjectTask, title: string) => {
+    await renameProjectTask(task.id, title);
+    if (activeProjectId) await reloadProjectTasks(activeProjectId);
+    showNotice("任务名称已更新");
+  }, [activeProjectId, reloadProjectTasks, showNotice]);
+
+  const handleRetryTask = useCallback(async (task: ProjectTask) => {
+    await updateProjectTaskStatus([task.id], "ready");
+    if (activeProjectId) await reloadProjectTasks(activeProjectId);
+    showNotice("任务已重新加入待处理队列");
+  }, [activeProjectId, reloadProjectTasks, showNotice]);
+
+  const handleBatchFavorite = useCallback(async (ids: string[], favorite: boolean) => {
+    await setProjectTasksFavorite(ids, favorite);
+    if (activeProjectId) await reloadProjectTasks(activeProjectId);
+    showNotice(favorite ? "已批量收藏" : "已取消批量收藏");
+  }, [activeProjectId, reloadProjectTasks, showNotice]);
+
+  const handleBatchTags = useCallback(async (ids: string[], tags: string[], remove: boolean) => {
+    await updateProjectTasksTags(ids, tags, remove);
+    if (activeProjectId) await reloadProjectTasks(activeProjectId);
+    showNotice(remove ? "已批量移除标签" : "已批量添加标签");
+  }, [activeProjectId, reloadProjectTasks, showNotice]);
+
   const handleDuplicateTask = useCallback(async (task: ProjectTask) => {
     const duplicate = await duplicateProjectTask(task.id); if (activeProjectId) await reloadProjectTasks(activeProjectId); await selectProjectTask(duplicate); showNotice("已创建关联任务副本");
   }, [activeProjectId, reloadProjectTasks, showNotice]);
@@ -1212,6 +1262,10 @@ export default function App() {
       onSelectionChange={setSelectedTaskIds}
       onFavorite={(task) => void handleFavoriteTask(task)}
       onTags={handleTaskTags}
+      onRenameTask={handleRenameTask}
+      onRetryTask={handleRetryTask}
+      onBatchFavorite={handleBatchFavorite}
+      onBatchTags={handleBatchTags}
       onDuplicate={(task) => void handleDuplicateTask(task)}
       onDeleteTasks={(ids) => void handleDeleteTasks(ids)}
       onReorder={(ids) => void reorderProjectTasks(ids).then(() => activeProjectId ? reloadProjectTasks(activeProjectId) : undefined)}
@@ -1402,6 +1456,8 @@ export default function App() {
               onRegenerate={handleRegenerate}
               onExport={exportPrompt}
               captureMetadata={image?.captureMetadata ?? projectTasks.find((item) => item.id === activeTaskId)?.captureMetadata ?? history.find((item) => item.id === activeHistoryId)?.captureMetadata}
+              imageDataUrl={image?.modelDataUrl}
+              hasApiKey={settings.hasApiKey}
               onResultChange={updatePromptResult}
               onRetry={handleGenerate}
               onOpenSettings={() => navigate("settings")}
@@ -1411,6 +1467,7 @@ export default function App() {
               onSaveHistory={() => void savePendingHistory()}
               initialSplitPercent={settings.workspace.resultSplitPercent}
               onSplitChange={(value) => updateWorkspacePreferences({ resultSplitPercent: value })}
+              previewInteraction={previewInteraction}
             />
           )}
         />

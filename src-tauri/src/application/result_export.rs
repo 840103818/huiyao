@@ -7,19 +7,28 @@ pub(crate) fn result_markdown(
     result: &ReverseResult,
     capture_metadata: Option<&CaptureMetadata>,
 ) -> String {
-    let active = active_version(result);
-    let prompts = active
-        .map(|version| &version.prompts)
+    let revision = active_revision(result);
+    let legacy = revision.is_none().then(|| active_version(result)).flatten();
+    let analysis = revision
+        .map(|value| &value.analysis)
+        .unwrap_or(&result.analysis);
+    let prompts = revision
+        .map(|value| &value.prompts)
+        .or_else(|| legacy.map(|value| &value.prompts))
         .unwrap_or(&result.prompts);
-    let metadata = active
-        .map(|version| &version.metadata)
+    let metadata = revision
+        .map(|value| &value.metadata)
+        .or_else(|| legacy.map(|value| &value.metadata))
         .unwrap_or(&result.metadata);
-    let negative = active
-        .filter(|version| version.target == PromptOptimizationTarget::Sdxl)
-        .map(|version| {
+    let negative_prompts = revision
+        .map(|value| &value.negative_prompts)
+        .or_else(|| legacy.map(|value| &value.negative_prompts));
+    let negative = negative_prompts
+        .filter(|negative| !negative.zh.trim().is_empty() || !negative.en.trim().is_empty())
+        .map(|negative| {
             format!(
                 "\n## 中文负面提示词\n\n{}\n\n## 英文负面提示词\n\n{}\n",
-                version.negative_prompts.zh, version.negative_prompts.en
+                negative.zh, negative.en
             )
         })
         .unwrap_or_default();
@@ -30,16 +39,16 @@ pub(crate) fn result_markdown(
         .unwrap_or_default();
     format!(
         "# 绘钥图片反推结果\n{capture}\n## 摄影测定\n\n- **主体**：{}\n- **场景背景**：{}\n- **构图**：{}\n- **光线**：{}\n- **影调曝光**：{}\n- **色彩**：{}\n- **材质**：{}\n- **风格**：{}\n- **镜头成像**：{}\n- **后期处理**：{}\n\n## 中文提示词\n\n{}\n\n## 英文提示词\n\n{}\n{}\n---\n\n- 模型：{}\n- 令牌数：{}\n- 耗时：{:.2} 秒\n- 生成时间：{}\n",
-        result.analysis.subject,
-        result.analysis.scene,
-        result.analysis.composition,
-        result.analysis.lighting,
-        result.analysis.tonality,
-        result.analysis.colors,
-        result.analysis.materials,
-        result.analysis.style,
-        result.analysis.camera,
-        result.analysis.post_processing,
+        analysis.subject,
+        analysis.scene,
+        analysis.composition,
+        analysis.lighting,
+        analysis.tonality,
+        analysis.colors,
+        analysis.materials,
+        analysis.style,
+        analysis.camera,
+        analysis.post_processing,
         prompts.zh,
         prompts.en,
         negative,
@@ -51,11 +60,15 @@ pub(crate) fn result_markdown(
 }
 
 pub(crate) fn result_text(result: &ReverseResult) -> String {
-    let active = active_version(result);
-    let prompts = active
-        .map(|version| &version.prompts)
+    let revision = active_revision(result);
+    let legacy = revision.is_none().then(|| active_version(result)).flatten();
+    let prompts = revision
+        .map(|value| &value.prompts)
+        .or_else(|| legacy.map(|value| &value.prompts))
         .unwrap_or(&result.prompts);
-    let negative = active.map(|version| &version.negative_prompts);
+    let negative = revision
+        .map(|value| &value.negative_prompts)
+        .or_else(|| legacy.map(|value| &value.negative_prompts));
     let mut sections = Vec::new();
     if !prompts.zh.trim().is_empty() {
         sections.push(format!("中文提示词\n{}", prompts.zh));
@@ -78,20 +91,32 @@ pub(crate) fn result_json(
     result: &ReverseResult,
     capture_metadata: Option<&CaptureMetadata>,
 ) -> Result<Vec<u8>, CommandError> {
+    let revision = active_revision(result);
     let active = active_version(result);
+    let analysis = revision
+        .map(|value| &value.analysis)
+        .unwrap_or(&result.analysis);
     let value = json!({
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "kind": "huiyao.reverse-prompt",
         "captureMetadata": capture_metadata,
-        "analysis": result.analysis,
+        "analysis": analysis,
+        "activeRevision": revision.map(|value| json!({
+            "id": value.id,
+            "origin": value.origin,
+            "sourceRevisionId": value.source_revision_id,
+            "title": value.title,
+            "lockedFields": value.locked_fields,
+            "syncState": value.sync_state,
+        })),
         "activePrompt": {
-            "id": active.map(|value| value.id.as_str()).unwrap_or("base"),
-            "origin": active.map(|value| json!(value.origin)).unwrap_or_else(|| json!("base")),
-            "target": active.map(|value| value.target).unwrap_or(PromptOptimizationTarget::General),
-            "title": active.and_then(|value| value.title.as_deref()).unwrap_or("原始反推版本"),
-            "prompts": active.map(|value| &value.prompts).unwrap_or(&result.prompts),
-            "negativePrompts": active.map(|value| &value.negative_prompts),
-            "metadata": active.map(|value| &value.metadata).unwrap_or(&result.metadata),
+            "id": revision.map(|value| value.id.as_str()).or_else(|| active.map(|value| value.id.as_str())).unwrap_or("base"),
+            "origin": revision.map(|value| json!(value.origin)).or_else(|| active.map(|value| json!(value.origin))).unwrap_or_else(|| json!("base")),
+            "target": revision.and_then(|value| value.target).or_else(|| active.map(|value| value.target)).unwrap_or(PromptOptimizationTarget::General),
+            "title": revision.and_then(|value| value.title.as_deref()).or_else(|| active.and_then(|value| value.title.as_deref())).unwrap_or("原始反推版本"),
+            "prompts": revision.map(|value| &value.prompts).or_else(|| active.map(|value| &value.prompts)).unwrap_or(&result.prompts),
+            "negativePrompts": revision.map(|value| &value.negative_prompts).or_else(|| active.map(|value| &value.negative_prompts)),
+            "metadata": revision.map(|value| &value.metadata).or_else(|| active.map(|value| &value.metadata)).unwrap_or(&result.metadata),
         },
         "baseMetadata": result.metadata,
     });
@@ -115,6 +140,15 @@ fn active_version(result: &ReverseResult) -> Option<&crate::models::PromptVersio
             .prompt_versions
             .iter()
             .find(|version| &version.id == id)
+    })
+}
+
+fn active_revision(result: &ReverseResult) -> Option<&crate::models::ResultRevision> {
+    result.active_result_revision_id.as_ref().and_then(|id| {
+        result
+            .result_revisions
+            .iter()
+            .find(|revision| &revision.id == id)
     })
 }
 

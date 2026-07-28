@@ -4,7 +4,7 @@
 
 `features/projects/` 管理项目任务栏、概览、批量导入和受控队列。队列并发固定为 1 或 2，单项异常由调度器隔离；只有选中任务把 SSE 增量送入完整结果组件。任务、项目和预设只能通过 `infrastructure/tauri/workspace.ts` 访问 Rust，不写入 `localStorage`。
 
-桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。开发环境还支持脱敏工作区视觉预览：`workspace-preview=1` 显示项目概览，`workspace-preview=task` 显示完整任务结果，`workspace-preview=streaming` 显示生成中间态。这些入口只在 `import.meta.env.DEV` 下启用，不调用模型、Keychain、SQLite 或原图接口。
+桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。开发环境还支持脱敏工作区视觉预览：`workspace-preview=1` 显示项目概览，`workspace-preview=task` 显示完整任务结果，`workspace-preview=streaming` 显示生成中间态；`theme-preview=light|dark` 固定截图主题，`interaction-preview=refinement|compare` 打开专业精修关键状态。这些入口只在 `import.meta.env.DEV` 下启用，不调用模型、Keychain、SQLite 或原图接口。
 
 `app/shell/WorkspaceLayout.tsx` 负责项目栏与视觉输入/结果的横向布局。它只接收渲染节点和宽度偏好，不持有项目或生成业务状态；拖动期间使用本地实时值，结束后通过 `App` 的工作区偏好更新函数持久化。范围同时在 React、浏览器降级设置和 Rust `WorkspacePreferences::normalized` 中限制。
 
@@ -13,8 +13,8 @@
 - `app/`：应用初始化、全局通知、页面切换、顶层工作台状态和 Shell。
 - `features/image-input/`：图片预处理、画布、拖放、查看器及功能样式。
 - `features/generation/`：生成状态反馈和流式部分 JSON 解析。
-- `features/analysis/`：摄影测定、EXIF 展示和动态结果分隔。
-- `features/prompts/`：提示词阅读、编辑副本、优化、比较和导出入口。
+- `features/analysis/`：摄影测定、EXIF、动态结果分隔、统一修订、校正与比较。
+- `features/prompts/`：提示词阅读、平台优化和导出入口；版本切换与比较统一由分析功能的修订栏承载。
 - `features/history/`：历史搜索、恢复和右键操作。
 - `features/projects/`：项目、任务队列、预设、筛选、废纸篓和批量操作。
 - `features/settings/`、`features/diagnostics/`：懒加载的二级页面。
@@ -32,6 +32,12 @@
 项目任务列表只读取任务摘要，不携带完整结果；选中任务后再通过详情命令加载结果，队列分页不会把全部提示词正文累积到 WebView。流式增量先进入有界后端响应缓冲，再进入 `features/generation/stream.ts` 的共享打印控制器。控制器分离已接收和已显示缓冲，以 40ms 帧间隔、自适应批量和 240ms 完成期限驱动局部 JSON 解析；完成时仍以 Rust 返回的严格结果为准。
 
 打印控制器按 Unicode 码点切分增量，积压阈值为 24 和 120 字符，单帧上限为 48 字符。反推与提示词优化复用同一实现，但各自持有独立控制器实例；停止和失败执行 `flush`，新请求与卸载执行 `reset`，避免旧定时器继续更新界面。真实接收字符数、首字时间和请求耗时由 SSE 事件维护，不使用打印进度替代。
+
+## 统一修订状态
+
+`features/analysis/revisions.ts` 是前端统一修订的唯一转换入口。它负责旧 `PromptVersion` 懒转换、活动修订解析、12 个派生修订上限、派生链级联删除影响和当前视图投影。基础 `ReverseResult.analysis/prompts` 不被派生操作覆盖。
+
+`RevisionBar` 持有校正、比较和提示词编辑 Drawer 的临时状态。人工字段修改自动加入 `lockedFields`；AI 重测的 SSE 增量通过共享打印控制器更新草稿，完成后以后端严格结果为准。结果保存仍通过顶层 `onResultChange` 进入串行的任务结果更新命令，组件不直接访问 SQLite。
 
 ## 样式
 

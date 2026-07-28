@@ -69,6 +69,8 @@ mod tests {
             crate::models::PromptVersionOrigin::Optimization
         );
         assert!(items[0].result.prompt_versions[0].title.is_none());
+        assert!(items[0].result.result_revisions.is_empty());
+        assert!(items[0].result.active_result_revision_id.is_none());
     }
 
     #[test]

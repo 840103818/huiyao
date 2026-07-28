@@ -144,65 +144,35 @@ describe("PromptPanel", () => {
     expect(screen.queryByText("无法解析的原始响应")).not.toBeInTheDocument();
   });
 
-  it("saves manual edits as a derived version without replacing the base result", async () => {
-    const onResultChange = vi.fn().mockResolvedValue(undefined);
-    render(<PromptPanel result={result} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={onResultChange} />);
+  it("renders the active unified revision without adding version controls to the prompt header", () => {
+    const revised: ReverseResult = { ...result, resultRevisions: [{ id: "r1", title: "精修版本", origin: "promptEdit", analysis: result.analysis, lockedFields: [], prompts: { zh: "精修中文", en: "refined English" }, negativePrompts: { zh: "", en: "" }, requirements: "", syncState: "synced", metadata: result.metadata }], activeResultRevisionId: "r1" };
+    render(<PromptPanel result={revised} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={vi.fn()} />);
+    expect(screen.getByLabelText("提示词正文")).toHaveTextContent("精修中文");
+    expect(screen.queryByLabelText("当前提示词版本")).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "编辑提示词副本" }));
-    expect(screen.getByText("编辑会创建新的本地派生版本，不会覆盖模型原始结果。")).toBeInTheDocument();
-    fireEvent.change(screen.getByDisplayValue("手工版本 1"), { target: { value: "精修版本" } });
-    fireEvent.change(screen.getByDisplayValue("中文提示词"), { target: { value: "手工修改后的中文提示词" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存为新版本" }));
+  it("defaults optimization to the active revision and keeps its analysis snapshot", async () => {
+    const revisedAnalysis = { ...result.analysis, lighting: "人工校正光线" };
+    const revision = { id: "r1", title: "校正版本", origin: "manualAnalysis" as const, analysis: revisedAnalysis, lockedFields: ["lighting" as const], prompts: { zh: "校正中文", en: "revised" }, negativePrompts: { zh: "", en: "" }, requirements: "", syncState: "local" as const, metadata: result.metadata };
+    const revised: ReverseResult = { ...result, resultRevisions: [revision], activeResultRevisionId: revision.id };
+    bridgeMocks.runPromptOptimization.mockResolvedValue({ prompts: { zh: "优化中文", en: "optimized" }, negativePrompts: { zh: "", en: "" }, metadata: result.metadata });
+    const onResultChange = vi.fn().mockResolvedValue(undefined);
+    render(<PromptPanel result={revised} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={onResultChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "优化" }));
+    expect(screen.getByText("校正版本")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "开始优化" }));
 
     await waitFor(() => expect(onResultChange).toHaveBeenCalledTimes(1));
+    expect(bridgeMocks.runPromptOptimization.mock.calls[0][0]).toMatchObject({ analysis: revisedAnalysis, sourcePrompts: revision.prompts });
     const next = onResultChange.mock.calls[0][0] as ReverseResult;
-    expect(next.prompts).toEqual(result.prompts);
-    expect(next.promptVersions?.[0]).toMatchObject({ origin: "manual", sourceVersionId: "base", title: "精修版本" });
-    expect(next.promptVersions?.[0].prompts.zh).toBe("手工修改后的中文提示词");
+    expect(next.resultRevisions?.at(-1)).toMatchObject({ sourceRevisionId: revision.id, analysis: revisedAnalysis, lockedFields: ["lighting"] });
   });
 
-  it("keeps manual editor content visible when persistence fails", async () => {
-    const onResultChange = vi.fn().mockRejectedValue(new Error("历史文件不可写"));
-    render(<PromptPanel result={result} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={onResultChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "编辑提示词副本" }));
-    fireEvent.change(screen.getByDisplayValue("中文提示词"), { target: { value: "尚未保存的编辑内容" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存为新版本" }));
-
-    expect(await screen.findByText("保存失败：历史文件不可写")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("尚未保存的编辑内容")).toBeInTheDocument();
-  });
-
-  it("enforces the shared eight-version limit for editing and optimization", () => {
-    const versions = Array.from({ length: 8 }, (_, index) => ({
-      id: `version-${index}`, target: "general" as const, origin: "manual" as const, sourceVersionId: "base", title: `版本 ${index + 1}`, requirements: "",
-      prompts: { zh: `中文 ${index}`, en: `English ${index}` }, negativePrompts: { zh: "", en: "" }, metadata: result.metadata,
-    }));
-    render(<PromptPanel result={{ ...result, promptVersions: versions }} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={vi.fn()} />);
-
-    expect(screen.getByRole("button", { name: "编辑提示词副本" })).toBeDisabled();
+  it("enforces the shared twelve-revision limit for optimization", () => {
+    const revisions = Array.from({ length: 12 }, (_, index) => ({ id: `r-${index}`, title: `修订 ${index}`, origin: "promptEdit" as const, analysis: result.analysis, lockedFields: [], prompts: result.prompts, negativePrompts: { zh: "", en: "" }, requirements: "", syncState: "synced" as const, metadata: result.metadata }));
+    render(<PromptPanel result={{ ...result, resultRevisions: revisions }} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: "优化" })).toBeDisabled();
-  });
-
-  it("opens a stable side-by-side comparison for derived versions", () => {
-    const manual: ReverseResult = {
-      ...result,
-      promptVersions: [{
-        id: "manual-1", target: "general", origin: "manual", sourceVersionId: "base", title: "精修版本", requirements: "",
-        prompts: { zh: "精修中文", en: "refined English" }, negativePrompts: { zh: "", en: "" }, metadata: result.metadata,
-      }],
-      activePromptVersionId: "manual-1",
-    };
-    const onCopy = vi.fn();
-    render(<PromptPanel result={manual} generationState="complete" isFinal canRegenerate onCopy={onCopy} onRegenerate={vi.fn()} onExport={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "比较提示词版本" }));
-    expect(screen.getByText("提示词版本比较")).toBeInTheDocument();
-    expect(screen.getByText("原始反推版本", { selector: ".comparison-column strong" })).toBeInTheDocument();
-    expect(screen.getByText("精修版本", { selector: ".comparison-column strong" })).toBeInTheDocument();
-    expect(screen.getByText("中文提示词", { selector: ".comparison-column pre" })).toBeInTheDocument();
-    expect(screen.getByText("精修中文", { selector: ".comparison-column pre" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "复制右侧版本" }));
-    expect(onCopy).toHaveBeenCalledWith("精修中文");
   });
 });
 

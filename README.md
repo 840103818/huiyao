@@ -2,7 +2,7 @@
 
 绘钥是使用 React、TypeScript、Arco Design 和 Tauri 2 构建的 macOS 本地数字暗房工作台。它以项目组织图片任务，批量完成摄影测定、双语提示词和提示词精修，并提供加密原图、EXIF、预设、标签、废纸篓、批量导出与运行诊断。界面采用舒适专业的 Apple 数字暗房风格，以图片和结果为主，减少重复边框、空状态占位和运行状态噪声；项目栏、视觉输入和结果区可按当前工作内容调整宽度。
 
-当前版本：`1.0.2`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
+当前版本：`2.0.0`；Bundle ID：`com.huiyao.studio`；主要发布目标：Apple Silicon、macOS 12 及以上。
 
 ![绘钥工作台](docs/assets/ui/current/workspace-light-1440x900.png)
 
@@ -15,15 +15,17 @@ npm run dev:desktop
 
 首次使用时应用会创建“我的项目”。在“设置”中配置 OpenAI Chat Completions 兼容服务的 `Base URL`、`API Key` 和模型名，然后导入 1 至 100 张图片并启动队列。浏览器开发模式仅用于旧单图界面调试，不支持项目数据库、模型请求、Keychain、原图加密和原生导出。
 
-## 1.0 工作流
+## 2.0 工作流
 
 1. 在左栏新建或选择项目，并选择反推预设。
 2. 单次导入最多 100 张 PNG、JPEG 或 WebP，总大小不超过 1 GB。
 3. 启动队列；默认串行，可在设置中选择两个并发。暂停会等待当前任务结束，停止会取消活动请求。
 4. 模型返回 SSE 增量时，摄影测定和双语提示词会以自适应打印效果实时出现；停止后仍可复制已经收到的部分提示词。
-5. 使用状态、收藏、原图和全文搜索筛选任务；结果可继续精修或创建关联副本重新生成。
-6. 批量导出 Markdown、JSON、纯提示词或原图 ZIP。包含原图时，图片会以未加密形式写入导出文件。
-7. 删除内容先进入本地废纸篓，30 天后自动永久清理。
+5. 在统一修订栏中校正摄影测定、采用 EXIF 实拍参数、AI 重测未锁定字段或编辑提示词副本；基础结果始终只读。
+6. 保存本地校正草稿后按需同步提示词，并通过比较抽屉核对来源与目标修订。每个任务最多保存 12 个派生修订。
+7. 使用状态、收藏、标签、原图和全文搜索筛选任务；失败或暂停任务可单项重试，任务支持重命名和批量整理。
+8. 批量导出 Markdown、Schema 2 JSON、纯提示词或原图 ZIP。包含原图时，图片会以未加密形式写入导出文件。
+9. 删除内容先进入本地废纸篓，30 天后自动永久清理。
 
 工作台的两条纵向分隔线支持拖动和键盘方向键调整；双击或按 `Home`、`Enter` 恢复默认布局，尺寸会随工作区偏好跨启动保存。
 
@@ -79,22 +81,14 @@ artifacts/             本地发布、视觉检查和测试产物，不提交 Gi
 
 ## 文档导航
 
-- [产品与使用说明](docs/product/overview.md)
-- [版本更新记录](CHANGELOG.md)
-- [项目工作台操作说明](docs/product/workspace.md)
-- [界面设计系统](docs/design/ui-system.md)
-- [交互规范](docs/design/interaction.md)
-- [总体架构](docs/engineering/architecture.md)
-- [前端架构](docs/engineering/frontend.md)
-- [后端架构](docs/engineering/backend.md)
-- [IPC 契约](docs/engineering/ipc-contracts.md)
-- [数据迁移](docs/engineering/data-migration.md)
-- [安全边界](docs/engineering/security.md)
-- [测试策略](docs/engineering/testing.md)
-- [开发指南](docs/operations/development.md)
-- [发布指南](docs/operations/release.md)
-- [故障排查](docs/operations/troubleshooting.md)
-- [架构决策记录](docs/adr/README.md)
+完整索引和分角色阅读路径参见[文档中心](docs/README.md)。
+
+| 路径 | 入口 |
+| --- | --- |
+| 使用绘钥 | [产品说明](docs/product/overview.md) · [项目工作台](docs/product/workspace.md) · [专业精修](docs/product/refinement.md) |
+| 理解设计 | [设计系统](docs/design/ui-system.md) · [交互规范](docs/design/interaction.md) · [界面基线](docs/assets/ui/current/README.md) |
+| 参与开发 | [总体架构](docs/engineering/architecture.md) · [开发指南](docs/operations/development.md) · [测试策略](docs/engineering/testing.md) |
+| 构建发布 | [发布指南](docs/operations/release.md) · [故障排查](docs/operations/troubleshooting.md) · [版本记录](CHANGELOG.md) |
 
 ## 安全与数据
 

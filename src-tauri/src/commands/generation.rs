@@ -373,6 +373,75 @@ async fn optimize_prompt_stream(
 }
 
 #[tauri::command]
+async fn refine_analysis_stream(
+    state: State<'_, AppState>,
+    request: AnalysisRefinementRequest,
+    on_event: Channel<ReverseStreamEvent>,
+) -> Result<AnalysisRefinementOutput, CommandError> {
+    let _permit = state
+        .request_slots
+        .try_acquire()
+        .map_err(|_| CommandError::new("request_busy", "当前模型请求较多，请稍后重试"))?;
+    let settings = store::read_settings(&state.settings_path())?;
+    let api_key = read_api_key()?;
+    let interaction_id = runtime_log::correlation_id();
+    let cancellation = CancellationToken::new();
+    state.cancellations.lock()
+        .map_err(|_| CommandError::new("request_lock", "请求状态暂时不可用"))?
+        .insert(interaction_id.clone(), cancellation.clone());
+    if on_event.send(ReverseStreamEvent::Started { interaction_id: interaction_id.clone() }).is_err() {
+        cancellation.cancel();
+        if let Ok(mut requests) = state.cancellations.lock() { requests.remove(&interaction_id); }
+        return Err(CommandError::new("channel_closed", "页面已关闭，模型请求已取消"));
+    }
+    let started = Instant::now();
+    state.log(LogLevel::Info, "model", "analysis_refinement_started", "开始摄影测定重测", json!({
+        "interactionId": interaction_id,
+        "model": settings.model,
+        "imagePayloadChars": request.image_data_url.len(),
+        "lockedFieldCount": request.locked_fields.len(),
+        "requirementsChars": request.requirements.chars().count(),
+    }));
+    let channel = on_event.clone();
+    let channel_cancellation = cancellation.clone();
+    let response = api::refine_analysis_stream(
+        &state.http_client, &settings, &api_key, &request, &cancellation,
+        move |event| match event {
+            api::ApiStreamEvent::Delta(content) => {
+                if channel.send(ReverseStreamEvent::Delta { content }).is_err() { channel_cancellation.cancel(); }
+            }
+            api::ApiStreamEvent::Fallback => {
+                if channel.send(ReverseStreamEvent::Fallback { reason: "provider_unsupported".into() }).is_err() { channel_cancellation.cancel(); }
+            }
+        },
+    ).await;
+    if let Ok(mut requests) = state.cancellations.lock() { requests.remove(&interaction_id); }
+    match response {
+        Ok(outcome) => {
+            state.log(LogLevel::Info, "model", "analysis_refinement_succeeded", "摄影测定重测完成", json!({
+                "interactionId": interaction_id,
+                "model": outcome.result.metadata.model,
+                "totalTokens": outcome.result.metadata.total_tokens,
+                "firstTokenMs": outcome.first_token_ms,
+                "elapsedMs": outcome.result.metadata.elapsed_ms,
+                "transport": if outcome.used_fallback { "fallback" } else { "stream" },
+            }));
+            Ok(outcome.result)
+        }
+        Err(error) => {
+            let error = state.attach_diagnostic(&interaction_id, error);
+            state.log(LogLevel::Error, "model", "analysis_refinement_failed", "摄影测定重测失败", json!({
+                "interactionId": interaction_id,
+                "errorCode": error.code,
+                "diagnosticId": error.diagnostic_id,
+                "wallTimeMs": started.elapsed().as_millis() as u64,
+            }));
+            Err(error)
+        }
+    }
+}
+
+#[tauri::command]
 fn cancel_reverse_prompt(
     state: State<'_, AppState>,
     interaction_id: String,
@@ -452,4 +521,3 @@ async fn stage_original_image(
     );
     Ok(staged)
 }
-

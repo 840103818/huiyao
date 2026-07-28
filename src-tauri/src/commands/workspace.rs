@@ -68,6 +68,12 @@ fn get_project_task(state: State<'_, AppState>, task_id: String) -> Result<Proje
 }
 
 #[tauri::command]
+fn rename_project_task(state: State<'_, AppState>, task_id: String, title: String) -> Result<(), CommandError> {
+    let _guard = workspace_lock(&state)?;
+    workspace_store::rename_task(&state.workspace_path(), &task_id, &title)
+}
+
+#[tauri::command]
 fn import_project_task(state: State<'_, AppState>, input: ImportProjectTaskInput) -> Result<ProjectTask, CommandError> {
     let _guard = workspace_lock(&state)?;
     let settings = store::read_settings(&state.settings_path())?;
@@ -142,6 +148,20 @@ fn set_project_task_favorite(state: State<'_, AppState>, task_id: String, favori
 fn set_project_task_tags(state: State<'_, AppState>, task_id: String, tags: Vec<String>) -> Result<(), CommandError> {
     let _guard = workspace_lock(&state)?;
     workspace_store::set_tags(&state.workspace_path(), &task_id, &tags)
+}
+
+#[tauri::command]
+fn set_project_tasks_favorite(state: State<'_, AppState>, task_ids: Vec<String>, favorite: bool) -> Result<usize, CommandError> {
+    validate_task_selection(&task_ids)?;
+    let _guard = workspace_lock(&state)?;
+    workspace_store::set_favorite_many(&state.workspace_path(), &task_ids, favorite)
+}
+
+#[tauri::command]
+fn update_project_tasks_tags(state: State<'_, AppState>, task_ids: Vec<String>, tags: Vec<String>, remove: bool) -> Result<usize, CommandError> {
+    validate_task_selection(&task_ids)?;
+    let _guard = workspace_lock(&state)?;
+    workspace_store::update_tags_many(&state.workspace_path(), &task_ids, &tags, remove)
 }
 
 #[tauri::command]

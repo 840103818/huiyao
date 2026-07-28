@@ -35,7 +35,7 @@ describe("ResultPanel", () => {
     expect(screen.getByText("镜头成像")).toBeInTheDocument();
     expect(screen.getByText("后期处理")).toBeInTheDocument();
     expect(screen.getByText(result.analysis.subject)).toBeInTheDocument();
-    expect(screen.getByText("已识别 10/10 项")).toBeInTheDocument();
+    expect(screen.getByText("10/10")).toBeInTheDocument();
     const rows = document.querySelectorAll(".analysis-item");
     expect(rows).toHaveLength(10);
     expect(Array.from(rows).map((row) => row.getAttribute("data-analysis-key"))).toEqual([
@@ -53,7 +53,8 @@ describe("ResultPanel", () => {
   it("distinguishes local EXIF facts from AI visual inference", () => {
     render(<ResultPanel result={result} generationState="complete" captureMetadata={{ cameraModel: "ILCE-7RM5", lensModel: "FE 50mm F1.2 GM", iso: "100" }} />);
     expect(screen.getByText("AI 视觉推断")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /文件实拍信息/ }));
+    fireEvent.click(screen.getByRole("button", { name: "摄影测定更多操作" }));
+    fireEvent.click(screen.getByText(/文件实拍信息/));
     expect(screen.getByText("ILCE-7RM5")).toBeInTheDocument();
     expect(screen.getByText("FE 50mm F1.2 GM")).toBeInTheDocument();
     expect(screen.getByText(/GPS、序列号、作者和版权字段不会保存/)).toBeInTheDocument();
@@ -61,7 +62,7 @@ describe("ResultPanel", () => {
 
   it("updates completion count for partial streaming data", () => {
     render(<ResultPanel result={{ ...result, analysis: { ...result.analysis, materials: "", style: "", camera: "", postProcessing: "" } }} generationState="streaming" />);
-    expect(screen.getByText("已识别 6/10 项")).toBeInTheDocument();
+    expect(screen.getByText("6/10")).toBeInTheDocument();
   });
 
   it("moves the printing cursor with the growing analysis field and removes it during prompt output", async () => {
@@ -116,10 +117,12 @@ describe("ResultPanel", () => {
     rerender(<ResultPanel result={{ ...longResult, metadata: { ...longResult.metadata, createdAt: "2026-01-02T00:00:00Z" } }} generationState="complete" />);
     expect(screen.getByText(longResult.analysis.subject)).not.toHaveClass("is-expanded");
 
-    fireEvent.click(screen.getByRole("button", { name: "展开全部" }));
+    fireEvent.click(screen.getByRole("button", { name: "摄影测定更多操作" }));
+    fireEvent.click(screen.getByText("展开全部"));
     expect(subject).toHaveClass("is-expanded");
     expect(composition).toHaveClass("is-expanded");
-    fireEvent.click(screen.getByRole("button", { name: "收起全部" }));
+    fireEvent.click(screen.getByRole("button", { name: "摄影测定更多操作" }));
+    fireEvent.click(screen.getByText("收起全部"));
     expect(subject).not.toHaveClass("is-expanded");
     expect(composition).not.toHaveClass("is-expanded");
   });

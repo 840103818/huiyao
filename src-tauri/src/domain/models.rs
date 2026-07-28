@@ -268,6 +268,91 @@ pub struct ReverseResult {
     pub prompt_versions: Vec<PromptVersion>,
     #[serde(default)]
     pub active_prompt_version_id: Option<String>,
+    #[serde(default)]
+    pub result_revisions: Vec<ResultRevision>,
+    #[serde(default)]
+    pub active_result_revision_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum AnalysisFieldKey {
+    Subject,
+    Scene,
+    Composition,
+    Lighting,
+    Tonality,
+    Colors,
+    Materials,
+    Style,
+    Camera,
+    PostProcessing,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ResultRevisionOrigin {
+    ManualAnalysis,
+    AiRefinement,
+    PromptEdit,
+    Optimization,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PromptSyncState {
+    Local,
+    Syncing,
+    #[default]
+    Synced,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultRevision {
+    pub id: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    pub origin: ResultRevisionOrigin,
+    #[serde(default)]
+    pub source_revision_id: Option<String>,
+    #[serde(default)]
+    pub analysis: Analysis,
+    #[serde(default)]
+    pub locked_fields: Vec<AnalysisFieldKey>,
+    #[serde(default)]
+    pub prompts: Prompts,
+    #[serde(default)]
+    pub negative_prompts: Prompts,
+    #[serde(default)]
+    pub target: Option<PromptOptimizationTarget>,
+    #[serde(default)]
+    pub requirements: String,
+    #[serde(default)]
+    pub sync_state: PromptSyncState,
+    #[serde(default)]
+    pub metadata: ResultMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisRefinementRequest {
+    pub image_data_url: String,
+    pub current_analysis: Analysis,
+    #[serde(default)]
+    pub locked_fields: Vec<AnalysisFieldKey>,
+    #[serde(default)]
+    pub requirements: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisRefinementOutput {
+    #[serde(default)]
+    pub analysis: Analysis,
+    #[serde(default)]
+    pub metadata: ResultMetadata,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

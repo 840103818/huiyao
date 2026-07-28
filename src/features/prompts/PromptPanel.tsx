@@ -1,8 +1,9 @@
-import { Alert, Button, Drawer, Dropdown, Empty, Form, Input, Menu, Message, Popconfirm, Radio, Select, Tabs, Tag, Tooltip } from "@arco-design/web-react";
-import { IconCopy, IconDelete, IconDownload, IconEye, IconEdit, IconRefresh, IconSave, IconStop } from "@arco-design/web-react/icon";
+import { Alert, Button, Drawer, Dropdown, Empty, Form, Input, Menu, Message, Radio, Select, Tabs, Tag, Tooltip } from "@arco-design/web-react";
+import { IconCopy, IconDownload, IconEdit, IconRefresh, IconSave, IconStop } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cancelReversePrompt, formatGeneratedAt, getActivePromptVersion, getErrorCode, getErrorMessage, runPromptOptimization } from "../../infrastructure/tauri";
-import type { CommandFailure, GenerationState, PromptOptimizationOutput, PromptOptimizationTarget, PromptVersion, ResultExportFormat, ReverseResult } from "../../shared/contracts";
+import { cancelReversePrompt, getErrorCode, getErrorMessage, runPromptOptimization } from "../../infrastructure/tauri";
+import type { CommandFailure, GenerationState, PromptOptimizationOutput, PromptOptimizationTarget, ResultExportFormat, ResultRevision, ReverseResult } from "../../shared/contracts";
+import { activeResultRevision, activeResultView, appendRevision, MAX_RESULT_REVISIONS, resultRevisions, revisionLabel } from "../analysis/revisions";
 import { ProcessingStatus } from "../generation/ProcessingStatus";
 import { createStreamPrinterController, parseStreamingOptimization } from "../generation/stream";
 
@@ -47,16 +48,6 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   const [optimizationReceivedCharacters, setOptimizationReceivedCharacters] = useState(0);
   const [optimizationPartial, setOptimizationPartial] = useState<PromptOptimizationOutput>();
   const [optimizationError, setOptimizationError] = useState<string>();
-  const [editOpen, setEditOpen] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState<string>();
-  const [editTitle, setEditTitle] = useState("");
-  const [editPrompts, setEditPrompts] = useState({ zh: "", en: "" });
-  const [editNegativePrompts, setEditNegativePrompts] = useState({ zh: "", en: "" });
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [compareLeftId, setCompareLeftId] = useState("base");
-  const [compareRightId, setCompareRightId] = useState("base");
-  const [compareLanguage, setCompareLanguage] = useState<"zh" | "en">("zh");
   const editorRef = useRef<HTMLPreElement>(null);
   const followStreamRef = useRef(true);
   const receivedCharactersRef = useRef(0);
@@ -72,15 +63,16 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   const optimizationStartedAtRef = useRef(0);
   const optimizationCancelRequestedRef = useRef(false);
   const loading = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
-  const activeVersion = result ? getActivePromptVersion(result) : undefined;
+  const activeVersion = result ? activeResultRevision(result) : undefined;
+  const activeView = result ? activeResultView(result) : undefined;
   const currentOutput = optimizationPartial ?? (activeVersion ? {
     prompts: activeVersion.prompts,
     negativePrompts: activeVersion.negativePrompts,
     metadata: activeVersion.metadata,
-  } : result ? { prompts: result.prompts, negativePrompts: { zh: "", en: "" }, metadata: result.metadata } : undefined);
+  } : activeView ? { prompts: activeView.prompts, negativePrompts: { zh: "", en: "" }, metadata: activeView.metadata } : undefined);
   const prompt = currentOutput?.prompts[language] ?? "";
   const negativePrompt = currentOutput?.negativePrompts[language] ?? "";
-  const versions = result?.promptVersions ?? [];
+  const versions = result ? resultRevisions(result) : [];
 
   useEffect(() => {
     if (currentOutput?.prompts.zh) setLanguage("zh");
@@ -104,30 +96,9 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   }, [optimizing]);
 
   const sourceOptions = useMemo(() => [
-    { label: "原始反推版本", value: "base" },
-    ...versions.map((version, index) => ({ label: versionLabel(version, index), value: version.id })),
+    { label: "原始结果", value: "base" },
+    ...versions.map((version, index) => ({ label: revisionLabel(version, index), value: version.id })),
   ], [versions]);
-
-  const selectVersion = async (value: string) => {
-    if (!result || !onResultChange) return;
-    try {
-      setOptimizationPartial(undefined);
-      await onResultChange({ ...result, activePromptVersionId: value === "base" ? undefined : value });
-    } catch (cause) {
-      message.error?.(`版本切换失败：${getErrorMessage(cause)}`);
-    }
-  };
-
-  const deleteVersion = async () => {
-    if (!result || !activeVersion || !onResultChange) return;
-    try {
-      const promptVersions = versions.filter((version) => version.id !== activeVersion.id);
-      await onResultChange({ ...result, promptVersions, activePromptVersionId: undefined });
-      message.success?.("提示词版本已删除");
-    } catch (cause) {
-      message.error?.(`版本删除失败：${getErrorMessage(cause)}`);
-    }
-  };
 
   const stopOptimization = async () => {
     optimizationCancelRequestedRef.current = true;
@@ -137,7 +108,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
   };
 
   const optimize = async () => {
-    if (!result || optimizing || versions.length >= 8) return;
+    if (!result || optimizing || versions.length >= MAX_RESULT_REVISIONS) return;
     const sourceVersion = sourceVersionId === "base" ? undefined : versions.find((version) => version.id === sourceVersionId);
     setOptimizing(true);
     setOptimizationState("connecting");
@@ -153,7 +124,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
     optimizationInteractionRef.current = undefined;
     try {
       const output = await runPromptOptimization({
-        analysis: result.analysis,
+        analysis: sourceVersion?.analysis ?? result.analysis,
         sourcePrompts: sourceVersion?.prompts ?? result.prompts,
         sourceNegativePrompts: sourceVersion?.negativePrompts,
         target,
@@ -181,22 +152,19 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         return;
       }
       await streamPrinterRef.current?.finish();
-      const version: PromptVersion = {
+      const version: ResultRevision = {
         id: crypto.randomUUID(), target, requirements: requirements.trim(),
-        origin: "optimization", sourceVersionId,
-        prompts: output.prompts, negativePrompts: output.negativePrompts, metadata: output.metadata,
+        origin: "optimization", sourceRevisionId: sourceVersionId === "base" ? undefined : sourceVersionId,
+        analysis: sourceVersion?.analysis ?? result.analysis, lockedFields: sourceVersion?.lockedFields ?? [],
+        prompts: output.prompts, negativePrompts: output.negativePrompts, metadata: output.metadata, syncState: "synced",
       };
-      const next = {
-        ...result,
-        promptVersions: [...versions, version].slice(-8),
-        activePromptVersionId: version.id,
-      };
+      const next = appendRevision(result, version);
       setOptimizationState("complete");
       setOptimizationElapsedMs(output.metadata.elapsedMs);
       await onResultChange?.(next);
       setOptimizationPartial(undefined);
       setDrawerOpen(false);
-      message.success?.("提示词优化完成并已保存为新版本");
+      message.success?.("提示词优化完成并已保存为新修订");
     } catch (cause) {
       if (getErrorCode(cause) === "cancelled") {
         streamPrinterRef.current?.flush();
@@ -218,55 +186,6 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
 
   const editorContent = negativePrompt ? `${prompt}\n\n负面提示词\n${negativePrompt}` : prompt;
   const characterCount = Array.from(editorContent).length;
-  const openManualEditor = () => {
-    if (!currentOutput || versions.length >= 8) return;
-    setEditError(undefined);
-    setEditTitle(`手工版本 ${versions.filter((version) => version.origin === "manual").length + 1}`);
-    setEditPrompts({ ...currentOutput.prompts });
-    setEditNegativePrompts({ ...currentOutput.negativePrompts });
-    setEditOpen(true);
-  };
-  const saveManualVersion = async () => {
-    if (!result || !onResultChange || versions.length >= 8) return;
-    const title = editTitle.trim();
-    const prompts = { zh: editPrompts.zh.trim(), en: editPrompts.en.trim() };
-    const negativePrompts = { zh: editNegativePrompts.zh.trim(), en: editNegativePrompts.en.trim() };
-    if (!title || (!prompts.zh && !prompts.en)) return;
-    const sourceMetadata = activeVersion?.metadata ?? result.metadata;
-    const version: PromptVersion = {
-      id: crypto.randomUUID(),
-      target: activeVersion?.target ?? "general",
-      origin: "manual",
-      sourceVersionId: result.activePromptVersionId ?? "base",
-      title,
-      requirements: "",
-      prompts,
-      negativePrompts,
-      metadata: { ...sourceMetadata, elapsedMs: 0, totalTokens: undefined, createdAt: new Date().toISOString() },
-    };
-    setEditSaving(true);
-    setEditError(undefined);
-    try {
-      await onResultChange({ ...result, promptVersions: [...versions, version], activePromptVersionId: version.id });
-      setEditOpen(false);
-      message.success?.("手工编辑已保存为新版本");
-    } catch (cause) {
-      const text = getErrorMessage(cause);
-      setEditError(text);
-      message.error?.(`手工版本保存失败：${text}`);
-    } finally {
-      setEditSaving(false);
-    }
-  };
-  const openComparison = () => {
-    if (!result || !versions.length) return;
-    setCompareRightId(result.activePromptVersionId ?? versions.at(-1)?.id ?? "base");
-    setCompareLeftId(activeVersion?.sourceVersionId && sourceOptions.some((option) => option.value === activeVersion.sourceVersionId)
-      ? activeVersion.sourceVersionId : "base");
-    setCompareOpen(true);
-  };
-  const leftComparison = result ? promptOutputForVersion(result, compareLeftId) : undefined;
-  const rightComparison = result ? promptOutputForVersion(result, compareRightId) : undefined;
   const exportMenu = (
     <Menu onClickMenuItem={(key) => onExport(key as ResultExportFormat)}>
       <Menu.Item key="markdown">Markdown 完整结果</Menu.Item>
@@ -284,27 +203,6 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
           <Tabs.TabPane key="en" title="英文提示词" disabled={!currentOutput?.prompts.en} />
         </Tabs>
         <div className="prompt-meta-actions">
-          {result ? (
-            <Select
-              size="mini"
-              className="prompt-version-select"
-              aria-label="当前提示词版本"
-              value={result.activePromptVersionId ?? "base"}
-              options={[{ label: "原始版本", value: "base" }, ...versions.map((version, index) => ({ label: versionLabel(version, index), value: version.id }))]}
-              onChange={(value) => void selectVersion(value)}
-            />
-          ) : null}
-          {activeVersion ? (
-            <Popconfirm title="删除当前优化版本？" okText="删除" cancelText="取消" onOk={() => void deleteVersion()}>
-              <Button type="text" size="mini" status="danger" icon={<IconDelete />} aria-label="删除当前优化版本" />
-            </Popconfirm>
-          ) : null}
-          <Tooltip content={versions.length >= 8 ? "每个结果最多保存 8 个派生版本" : "保留原始结果并创建可编辑副本"}>
-            <Button type="text" size="mini" icon={<IconEdit />} aria-label="编辑提示词副本" disabled={!result || !isFinal || optimizing || !onResultChange || versions.length >= 8} onClick={openManualEditor} />
-          </Tooltip>
-          <Tooltip content="并排比较两个提示词版本">
-            <Button type="text" size="mini" icon={<IconEye />} aria-label="比较提示词版本" disabled={!versions.length} onClick={openComparison} />
-          </Tooltip>
           <span className="prompt-format">共 {characterCount.toLocaleString("zh-CN")} 字</span>
           {optimizationPartial ? <Tag color="orange">未完成版本</Tag> : null}
           {canSaveHistory ? <Button size="mini" icon={<IconSave />} onClick={onSaveHistory}>保存历史</Button> : null}
@@ -337,7 +235,7 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
             <Tooltip content="复制摄影测定、双语提示词和生成信息"><Button icon={<IconCopy />} disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial) || !onCopyFull} onClick={() => result && onCopyFull?.(result)}>复制完整结果</Button></Tooltip>
           </div>
           <div className="editor-workflow-actions">
-            <Tooltip content={versions.length >= 8 ? "每个结果最多保存 8 个派生版本" : "优化当前提示词"}><Button icon={<IconEdit />} disabled={!result || !isFinal || loading || optimizing || !onResultChange || versions.length >= 8} onClick={() => { setOptimizationState("idle"); setOptimizationError(undefined); setDrawerOpen(true); }}>优化</Button></Tooltip>
+            <Tooltip content={versions.length >= MAX_RESULT_REVISIONS ? `每个结果最多保存 ${MAX_RESULT_REVISIONS} 个派生修订` : "优化当前提示词"}><Button icon={<IconEdit />} disabled={!result || !isFinal || loading || optimizing || !onResultChange || versions.length >= MAX_RESULT_REVISIONS} onClick={() => { setSourceVersionId(activeVersion?.id ?? "base"); setOptimizationState("idle"); setOptimizationError(undefined); setDrawerOpen(true); }}>优化</Button></Tooltip>
             <Tooltip content="重新生成"><Button className="compact-action" icon={<IconRefresh />} aria-label="重新生成" disabled={loading || optimizing || !canRegenerate} onClick={onRegenerate}><span>重新生成</span></Button></Tooltip>
             <Dropdown droplist={exportMenu} position="br" trigger="click" disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial)}>
               <Tooltip content="选择结果导出格式"><Button className="compact-action" icon={<IconDownload />} aria-label="导出" disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial)}><span>导出</span></Button></Tooltip>
@@ -348,15 +246,15 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
       <Drawer className="optimization-drawer" width={400} title="提示词二次优化" visible={drawerOpen} maskClosable={!optimizing} escToExit={!optimizing} footer={null} onCancel={() => { if (!optimizing) setDrawerOpen(false); }}>
         <Form layout="vertical">
           <Form.Item label="目标平台">
-            <Radio.Group type="button" value={target} onChange={(value) => setTarget(value as PromptOptimizationTarget)}>
+            <Radio.Group type="button" value={target} disabled={optimizing} onChange={(value) => setTarget(value as PromptOptimizationTarget)}>
               <Radio value="general">通用</Radio><Radio value="midjourney">Midjourney</Radio><Radio value="flux">Flux</Radio><Radio value="sdxl">SDXL</Radio>
             </Radio.Group>
           </Form.Item>
           <Form.Item label="来源版本">
-            <Select value={sourceVersionId} options={sourceOptions} onChange={setSourceVersionId} />
+            <Select value={sourceVersionId} options={sourceOptions} disabled={optimizing} onChange={setSourceVersionId} />
           </Form.Item>
           <Form.Item label="自定义要求">
-            <Input.TextArea value={requirements} maxLength={500} showWordLimit autoSize={{ minRows: 4, maxRows: 7 }} placeholder="例如：增强商业摄影质感，保留自然肤色" onChange={setRequirements} />
+            <Input.TextArea value={requirements} maxLength={500} showWordLimit disabled={optimizing} autoSize={{ minRows: 4, maxRows: 7 }} placeholder="例如：增强商业摄影质感，保留自然肤色" onChange={setRequirements} />
           </Form.Item>
           <div className="optimization-summary">
             <span>真实宽高比</span><strong>{aspectRatio ?? "未提供"}</strong>
@@ -379,96 +277,10 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
           {optimizationError ? <Alert type="error" content={optimizationError} /> : null}
           <div className="optimization-actions">
             {optimizing ? <Button long status="danger" icon={<IconStop />} onClick={() => void stopOptimization()}>停止优化</Button>
-              : <Button long type="primary" icon={<IconEdit />} disabled={versions.length >= 8} onClick={() => void optimize()}>开始优化</Button>}
+              : <Button long type="primary" icon={<IconEdit />} disabled={versions.length >= MAX_RESULT_REVISIONS} onClick={() => void optimize()}>开始优化</Button>}
           </div>
         </Form>
-      </Drawer>
-      <Drawer className="prompt-edit-drawer" width={520} title="编辑提示词副本" visible={editOpen} footer={null} unmountOnExit onCancel={() => setEditOpen(false)}>
-        <Form layout="vertical">
-          <Alert type="info" content="编辑会创建新的本地派生版本，不会覆盖模型原始结果。" />
-          {editError ? <Alert type="error" content={`保存失败：${editError}`} /> : null}
-          <Form.Item label="版本名称" required>
-            <Input value={editTitle} maxLength={32} showWordLimit onChange={setEditTitle} />
-          </Form.Item>
-          <Form.Item label="中文提示词">
-            <Input.TextArea value={editPrompts.zh} maxLength={50_000} showWordLimit autoSize={{ minRows: 7, maxRows: 14 }} onChange={(value) => setEditPrompts((current) => ({ ...current, zh: value }))} />
-          </Form.Item>
-          <Form.Item label="英文提示词">
-            <Input.TextArea value={editPrompts.en} maxLength={50_000} showWordLimit autoSize={{ minRows: 7, maxRows: 14 }} onChange={(value) => setEditPrompts((current) => ({ ...current, en: value }))} />
-          </Form.Item>
-          {(activeVersion?.target === "sdxl" || editNegativePrompts.zh || editNegativePrompts.en) ? (
-            <>
-              <Form.Item label="中文负面提示词"><Input.TextArea value={editNegativePrompts.zh} maxLength={50_000} autoSize={{ minRows: 3, maxRows: 8 }} onChange={(value) => setEditNegativePrompts((current) => ({ ...current, zh: value }))} /></Form.Item>
-              <Form.Item label="英文负面提示词"><Input.TextArea value={editNegativePrompts.en} maxLength={50_000} autoSize={{ minRows: 3, maxRows: 8 }} onChange={(value) => setEditNegativePrompts((current) => ({ ...current, en: value }))} /></Form.Item>
-            </>
-          ) : null}
-          <div className="drawer-footer-actions">
-            <Button disabled={editSaving} onClick={() => setEditOpen(false)}>取消</Button>
-            <Button type="primary" icon={<IconSave />} loading={editSaving} disabled={!editTitle.trim() || (!editPrompts.zh.trim() && !editPrompts.en.trim())} onClick={() => void saveManualVersion()}>保存为新版本</Button>
-          </div>
-        </Form>
-      </Drawer>
-      <Drawer className="prompt-compare-drawer" width={780} title="提示词版本比较" visible={compareOpen} footer={null} unmountOnExit onCancel={() => setCompareOpen(false)}>
-        <div className="compare-toolbar">
-          <Select aria-label="左侧比较版本" value={compareLeftId} options={sourceOptions} onChange={setCompareLeftId} />
-          <span>对比</span>
-          <Select aria-label="右侧比较版本" value={compareRightId} options={sourceOptions} onChange={setCompareRightId} />
-          <Radio.Group type="button" size="small" value={compareLanguage} onChange={(value) => setCompareLanguage(value as "zh" | "en")}>
-            <Radio value="zh">中文</Radio><Radio value="en">英文</Radio>
-          </Radio.Group>
-        </div>
-        <div className="prompt-comparison-grid">
-          <ComparisonColumn output={leftComparison} language={compareLanguage} side="左侧" onCopy={onCopy} />
-          <ComparisonColumn output={rightComparison} language={compareLanguage} side="右侧" onCopy={onCopy} />
-        </div>
       </Drawer>
     </section>
-  );
-}
-
-function versionLabel(version: PromptVersion, index: number): string {
-  if (version.origin === "manual") return `${index + 1}. ${version.title || "手工版本"}`;
-  return `${index + 1}. ${targetLabels[version.target]}`;
-}
-
-function promptOutputForVersion(result: ReverseResult, id: string) {
-  if (id === "base") return {
-    label: "原始反推版本",
-    prompts: result.prompts,
-    negativePrompts: { zh: "", en: "" },
-    metadata: result.metadata,
-    target: "general" as PromptOptimizationTarget,
-    requirements: "",
-  };
-  const version = result.promptVersions?.find((candidate) => candidate.id === id);
-  return version ? {
-    label: version.title || targetLabels[version.target],
-    prompts: version.prompts,
-    negativePrompts: version.negativePrompts,
-    metadata: version.metadata,
-    target: version.target,
-    requirements: version.requirements,
-  } : undefined;
-}
-
-function ComparisonColumn({ output, language, side, onCopy }: {
-  output?: ReturnType<typeof promptOutputForVersion>;
-  language: "zh" | "en";
-  side: "左侧" | "右侧";
-  onCopy: (text: string) => void;
-}) {
-  const positive = output?.prompts[language] ?? "";
-  const negative = output?.negativePrompts[language] ?? "";
-  const copyText = negative ? `${positive}\n\n负面提示词\n${negative}` : positive;
-  return (
-    <article className="comparison-column">
-      <header>
-        <strong>{output?.label ?? "版本不可用"}</strong>
-        <div><span>{Array.from(`${positive}${negative}`).length.toLocaleString("zh-CN")} 字</span><Button type="text" size="mini" icon={<IconCopy />} aria-label={`复制${side}版本`} disabled={!copyText} onClick={() => onCopy(copyText)}>复制</Button></div>
-      </header>
-      {output ? <div className="comparison-meta"><span>平台 {targetLabels[output.target]}</span><span>生成 {formatGeneratedAt(output.metadata.createdAt)}</span>{output.requirements ? <span title={output.requirements}>要求 {output.requirements}</span> : null}</div> : null}
-      <pre>{positive || "该语言没有内容"}</pre>
-      {negative ? <><h4>负面提示词</h4><pre>{negative}</pre></> : null}
-    </article>
   );
 }

@@ -147,6 +147,7 @@ fn validate_history(items: &[HistoryItem]) -> Result<(), CommandError> {
                 "当前提示词版本不存在",
             ));
         }
+        crate::workspace_store::validate_result(&item.result)?;
         let bytes = serde_json::to_vec(item)
             .map_err(|error| CommandError::new("history_invalid", error.to_string()))?;
         if bytes.len() > MAX_HISTORY_ITEM_BYTES {

@@ -33,11 +33,17 @@ function normalizeHistory(value: unknown): HistoryItem[] {
     const activePromptVersionId = typeof result.activePromptVersionId === "string"
       && promptVersions.some((version) => version && typeof version === "object" && (version as { id?: string }).id === result.activePromptVersionId)
       ? result.activePromptVersionId : undefined;
+    const resultRevisions = Array.isArray(result.resultRevisions) ? result.resultRevisions.slice(0, 12) : [];
+    const activeResultRevisionId = typeof result.activeResultRevisionId === "string"
+      && resultRevisions.some((revision) => revision && typeof revision === "object" && (revision as { id?: string }).id === result.activeResultRevisionId)
+      ? result.activeResultRevisionId : undefined;
     historyItem.result = {
       ...result,
       analysis: { scene: "", tonality: "", postProcessing: "", ...analysis },
       promptVersions,
       activePromptVersionId,
+      resultRevisions,
+      activeResultRevisionId,
     };
     return [historyItem as unknown as HistoryItem];
   }).slice(0, 50);

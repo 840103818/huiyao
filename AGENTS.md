@@ -41,7 +41,8 @@
 - 优先复用现有 Arco Design 组件、语义化 Token 和 IPC 接口。
 - 不在 WebView 中持久化 API Key，不在日志中记录请求正文或模型响应正文。
 - 流式协议、历史、设置和 IPC 变更必须同步更新 TypeScript、Rust、浏览器降级实现和测试。
-- `PromptVersion`、EXIF 白名单和导出结构变更必须同时核对前端与 Rust 序列化。
+- `PromptVersion`、`ResultRevision`、EXIF 白名单和导出结构变更必须同时核对前端与 Rust 序列化。
+- 统一修订最多 12 个；基础结果只读，人工修改自动锁定，AI 重测必须在 Rust 端再次恢复锁定字段。
 - `workspace.sqlite3` 结构变更必须增加幂等迁移和回滚测试；旧 `history.json` 只读保留，不得覆盖。
 - Vite 配置以 `vite.config.ts` 为唯一来源。
 - 用户可见文本默认使用简体中文；模型名、请求 ID、`API Key`、`Base URL` 等技术标识可保留英文。

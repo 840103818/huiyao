@@ -4,6 +4,11 @@
 
 本轮舒适专业布局优化的核心基线：
 
+- `professional-refinement-light-1440x900.png`：2.0 宽屏浅色统一修订工作台。
+- `professional-refinement-dark-1120x720.png`：2.0 窄屏深色统一修订工作台。
+- `analysis-refinement-light-1440x900.png`：摄影测定校正、字段锁定与本地草稿。
+- `revision-compare-dark-1120x720.png`：窄屏修订比较和单列内容布局。
+
 - `workspace-light-1440x900.png`：宽屏浅色项目概览与固定项目栏。
 - `workspace-dark-1120x720.png`：最小窗口深色项目概览。
 - `project-drawer-dark-1120x720.png`：窄屏项目任务 Drawer。

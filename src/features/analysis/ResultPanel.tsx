@@ -1,5 +1,5 @@
-import { Badge, Button, Drawer, Empty, Radio, Skeleton, Tag, Tooltip } from "@arco-design/web-react";
-import { IconApps, IconBulb, IconCamera, IconDown, IconEye, IconFilter, IconHighlight, IconHome, IconPalette, IconScan, IconStorage, IconUp } from "@arco-design/web-react/icon";
+import { Badge, Button, Drawer, Dropdown, Empty, Menu, Radio, Skeleton, Tag, Tooltip } from "@arco-design/web-react";
+import { IconApps, IconBulb, IconCamera, IconDown, IconEdit, IconEye, IconFilter, IconHighlight, IconHome, IconMore, IconPalette, IconScan, IconStorage, IconUp } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CaptureMetadata, GenerationState, ReverseResult } from "../../shared/contracts";
 
@@ -7,6 +7,7 @@ interface ResultPanelProps {
   result: ReverseResult | null;
   generationState: GenerationState;
   captureMetadata?: CaptureMetadata;
+  onRefine?: () => void;
 }
 
 const rows = [
@@ -34,7 +35,7 @@ const captureRows: Array<[keyof CaptureMetadata, string]> = [
   ["whiteBalance", "白平衡"], ["capturedAt", "拍摄时间"], ["colorSpace", "色彩空间"],
 ];
 
-export function ResultPanel({ result, generationState, captureMetadata }: ResultPanelProps) {
+export function ResultPanel({ result, generationState, captureMetadata, onRefine }: ResultPanelProps) {
   const analysis = result?.analysis;
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<"all" | AnalysisGroup>("all");
@@ -111,24 +112,17 @@ export function ResultPanel({ result, generationState, captureMetadata }: Result
     <section className={`analysis-panel panel ${loading ? "is-loading" : ""}`}>
       <header className="panel-header">
         <div className="analysis-title"><h2>摄影测定</h2><Tag size="small">AI 视觉推断</Tag></div>
-        <div className="analysis-header-actions">
-          <Button type="text" size="mini" icon={<IconCamera />} onClick={() => setCaptureOpen(true)}>文件实拍信息{captureCount ? ` ${captureCount}` : ""}</Button>
-          <Badge status={badgeStatus} text={status} />
-        </div>
+        <div className="analysis-header-actions"><Badge status={badgeStatus} text={status} />{onRefine ? <Button size="mini" icon={<IconEdit />} onClick={onRefine}>校正</Button> : null}</div>
       </header>
       <div className="analysis-subhead">
         <Radio.Group type="button" size="mini" value={activeGroup} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">
           <Radio value="all">全部</Radio><Radio value="frame">画面</Radio><Radio value="light">光影</Radio><Radio value="imaging">成像</Radio>
         </Radio.Group>
-        <div className="analysis-expand-actions">
-          <Tag size="small">已识别 {completedCount}/{rows.length} 项</Tag>
-          <Button className="analysis-expand-all" type="text" size="mini" disabled={!expandableInGroup.length} onClick={toggleGroup}>
-            {groupExpanded ? "收起本组" : "展开本组"}
-          </Button>
-          <Button className="analysis-expand-all" type="text" size="mini" disabled={!expandableKeys.length} onClick={() => setExpandedKeys(allExpanded ? new Set() : new Set(expandableKeys))}>
-            {allExpanded ? "收起全部" : "展开全部"}
-          </Button>
-        </div>
+        <div className="analysis-expand-actions"><span>{completedCount}/{rows.length}</span><Dropdown trigger="click" position="br" droplist={<Menu onClickMenuItem={(key) => {
+          if (key === "capture") setCaptureOpen(true);
+          if (key === "group") toggleGroup();
+          if (key === "all") setExpandedKeys(allExpanded ? new Set() : new Set(expandableKeys));
+        }}><Menu.Item key="capture"><IconCamera />文件实拍信息{captureCount ? ` ${captureCount}` : ""}</Menu.Item><Menu.Item key="group" disabled={!expandableInGroup.length}>{groupExpanded ? "收起当前组" : "展开当前组"}</Menu.Item><Menu.Item key="all" disabled={!expandableKeys.length}>{allExpanded ? "收起全部" : "展开全部"}</Menu.Item></Menu>}><Button type="text" size="mini" icon={<IconMore />} aria-label="摄影测定更多操作" /></Dropdown></div>
       </div>
       <div ref={gridRef} className="analysis-grid" aria-live={loading ? "off" : "polite"} aria-busy={loading}>
         {!result && generationState === "idle" ? (
