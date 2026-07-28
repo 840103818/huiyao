@@ -8,6 +8,7 @@
 - `professional-refinement-dark-1120x720.png`：2.0 窄屏深色统一修订工作台。
 - `analysis-refinement-light-1440x900.png`：摄影测定校正、字段锁定与本地草稿。
 - `revision-compare-dark-1120x720.png`：窄屏修订比较和单列内容布局。
+- `revision-delete-confirm-light-1440x900.png`：修订更多菜单中的危险删除确认及级联影响说明。
 
 - `workspace-light-1440x900.png`：宽屏浅色项目概览与固定项目栏。
 - `workspace-dark-1120x720.png`：最小窗口深色项目概览。

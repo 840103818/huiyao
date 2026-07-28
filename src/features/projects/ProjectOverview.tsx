@@ -32,7 +32,7 @@ export function ProjectOverview({ project, tasks, progress, onImport, onImportFi
     >
       <div className="overview-content">
         <header className="overview-header">
-          <div><span>当前项目</span><h1>{project?.title ?? "我的项目"}</h1><p>{progress.total ? `${progress.total} 个任务，${pending} 个等待处理` : "本地图片创作工作区"}</p></div>
+          <div><h1>{project?.title ?? "我的项目"}</h1><p>{progress.total ? `${progress.total} 个任务，${pending} 个等待处理` : "本地图片创作工作区"}</p></div>
           <div><Button icon={<IconImport />} onClick={onImport}>导入图片</Button><Button type="primary" icon={<IconPlayArrow />} disabled={!progress.ready && !progress.paused} onClick={onStart}>开始队列</Button></div>
         </header>
         <div className="overview-metrics" aria-label="项目任务概况">

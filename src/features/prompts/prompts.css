@@ -7,17 +7,18 @@
 .prompt-version-select { width: 124px; }
 .prompt-format { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
 .error-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.code-editor { position: relative; display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr) 50px; grid-template-areas: "notice" "content" "actions"; background: var(--editor-bg); }
+.code-editor { position: relative; display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr) 52px; grid-template-areas: "notice" "content" "actions"; background: var(--editor-bg); }
 .code-editor > .arco-alert { grid-area: notice; margin: 10px 12px 0; border-radius: 6px; }
 .prompt-content { display: grid; min-width: 0; min-height: 0; grid-area: content; overflow: hidden; }
 .prompt-content > .arco-empty { place-self: center; }
-.code-editor pre { width: 100%; height: 100%; min-height: 0; margin: 0; padding-block: 22px 28px; padding-inline: max(22px, calc((100% - 72ch) / 2)); overflow: auto; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.82 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.code-editor pre { width: 100%; height: 100%; min-height: 0; margin: 0; padding-block: 26px 32px; padding-inline: max(24px, calc((100% - 68ch) / 2)); overflow: auto; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.88 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .code-editor pre.raw-response { color: var(--warning); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.7; }
 .stream-caret { display: inline-block; width: 2px; height: 1.15em; margin-left: 2px; vertical-align: -.18em; background: var(--brand); animation: caret-blink .8s step-end infinite; }
-.editor-actions { display: flex; min-width: 0; grid-area: actions; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--border); background: var(--surface); }
-.editor-copy-actions, .editor-workflow-actions { display: flex; min-width: 0; align-items: center; gap: 5px; }
+.editor-actions { display: flex; min-width: 0; grid-area: actions; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 10px; border-top: 1px solid var(--border); background: var(--surface); }
+.editor-copy-actions, .editor-workflow-actions { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .editor-copy-actions { flex: 0 1 auto; }
 .editor-workflow-actions { flex: 0 0 auto; }
+.editor-workflow-actions { padding-left: 10px; border-left: 1px solid var(--border); }
 .editor-actions .arco-btn { height: 34px; white-space: nowrap; }
 .editor-copy-actions .arco-btn { min-width: 104px; }
 .editor-workflow-actions .arco-btn:not(.compact-action) { min-width: 76px; }
