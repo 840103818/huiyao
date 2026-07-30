@@ -1,6 +1,6 @@
 [package]
 name = "huiyao"
-version = "2.0.1"
+version = "2.0.2"
 description = "A macOS image reverse prompt workbench"
 authors = ["Huiyao Studio"]
 edition = "2021"

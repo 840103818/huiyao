@@ -2,7 +2,7 @@
 
 绘钥是一款使用 React、TypeScript 与 Tauri 2 构建的 macOS 本地数字暗房工作台。它面向摄影师、设计师和内容创作者，以项目和任务组织图片反推、摄影测定、双语提示词、专业精修、批量导出与本地资产管理。
 
-当前版本：`2.0.1` · Bundle ID：`com.huiyao.studio` · 支持 Apple Silicon 与 macOS 12 及以上版本。
+当前版本：`2.0.2` · Bundle ID：`com.huiyao.studio` · 支持 Apple Silicon 与 macOS 12 及以上版本。
 
 ![绘钥 2.0 专业精修工作台](docs/assets/ui/current/professional-refinement-light-1440x900.png)
 
@@ -39,14 +39,14 @@
 
 ## 下载安装
 
-从 [GitHub Releases](https://github.com/840103818/huiyao/releases/latest) 下载 `Huiyao_2.0.1_aarch64.dmg`，打开后将“绘钥”拖入“应用程序”。
+从 [GitHub Releases](https://github.com/840103818/huiyao/releases/latest) 下载 `Huiyao_2.0.2_aarch64.dmg`，打开后将“绘钥”拖入“应用程序”。
 
 当前发布包使用 ad-hoc 签名，适合个人或内部使用，未进行 Apple notarization。首次启动若被 macOS 阻止，请在“系统设置 → 隐私与安全性”中确认来源后再次打开。不要从非项目 Release 页面下载重新打包的安装文件。
 
 可使用同一 Release 中的 `.sha256` 文件核对安装包：
 
 ```bash
-shasum -a 256 -c Huiyao_2.0.1_aarch64.dmg.sha256
+shasum -a 256 -c Huiyao_2.0.2_aarch64.dmg.sha256
 ```
 
 ## 快速开始
@@ -256,7 +256,7 @@ npm run package:macos -- --fast
 
 ```text
 artifacts/release/绘钥.app
-artifacts/release/绘钥_2.0.1_aarch64.dmg
+artifacts/release/绘钥_2.0.2_aarch64.dmg
 ```
 
 发布脚本检查版本、Bundle ID、图标、本地化、arm64 架构、ad-hoc 签名和 DMG 完整性。正式发布步骤参见[macOS 发布指南](docs/operations/release.md)。
