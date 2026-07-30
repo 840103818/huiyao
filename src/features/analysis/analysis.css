@@ -20,8 +20,13 @@
 .analysis-header-actions .arco-btn:hover { color: var(--brand); background: var(--brand-soft); }
 .analysis-subhead { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px 0 9px; border-bottom: 1px solid var(--border); color: var(--muted); background: var(--surface); font-size: 11px; }
 .analysis-subhead > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.analysis-subhead .arco-radio-group { flex: 0 0 auto; }
-.analysis-subhead .arco-radio-button { min-height: 28px; padding: 0 9px; border-color: transparent !important; font-size: 11px; }
+.analysis-group-nav.arco-radio-group { display: grid; flex: 1 1 272px; max-width: 272px; min-width: 0; height: 28px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.analysis-group-nav .arco-radio-button { display: flex; min-width: 0; height: 22px; min-height: 22px; align-items: center; justify-content: center; padding: 0; color: var(--muted); border: 0 !important; border-radius: 4px !important; background: transparent; font-size: 11px; transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 120ms ease; }
+.analysis-group-nav .arco-radio-button::before { display: none; }
+.analysis-group-nav .arco-radio-button-inner { display: block; width: 100%; padding: 0 !important; overflow: hidden; line-height: 22px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-group-nav .arco-radio-button:hover { color: var(--text); background: color-mix(in srgb, var(--surface-3) 72%, transparent); }
+.analysis-group-nav .arco-radio-button:active { transform: scale(.98); }
+.analysis-group-nav .arco-radio-button.arco-radio-checked { color: var(--brand-strong); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong), 0 1px 2px color-mix(in srgb, var(--text) 8%, transparent); font-weight: 650; }
 .analysis-expand-actions { justify-content: flex-end; }
 .analysis-expand-actions > span { color: var(--faint); font-variant-numeric: tabular-nums; }
 .analysis-expand-all { color: var(--muted) !important; font-size: 11px !important; }

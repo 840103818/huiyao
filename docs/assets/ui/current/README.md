@@ -4,8 +4,8 @@
 
 本轮舒适专业布局优化的核心基线：
 
-- `professional-refinement-light-1440x900.png`：2.0 宽屏浅色统一修订工作台。
-- `professional-refinement-dark-1120x720.png`：2.0 窄屏深色统一修订工作台。
+- `professional-refinement-light-1440x900.png`：2.0 宽屏浅色统一修订工作台与连续摄影测定分组导航。
+- `professional-refinement-dark-1120x720.png`：2.0 窄屏深色统一修订工作台与连续摄影测定分组导航。
 - `analysis-refinement-light-1440x900.png`：摄影测定校正、字段锁定与本地草稿。
 - `revision-compare-dark-1120x720.png`：窄屏修订比较和单列内容布局。
 - `revision-delete-confirm-light-1440x900.png`：修订更多菜单中的危险删除确认及级联影响说明。

@@ -36,6 +36,10 @@ describe("ResultPanel", () => {
     expect(screen.getByText("后期处理")).toBeInTheDocument();
     expect(screen.getByText(result.analysis.subject)).toBeInTheDocument();
     expect(screen.getByText("10/10")).toBeInTheDocument();
+    const groupNav = screen.getByLabelText("摄影测定分组定位");
+    expect(groupNav).toHaveClass("analysis-group-nav");
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(screen.getByRole("radio", { name: "全部" })).toBeChecked();
     const rows = document.querySelectorAll(".analysis-item");
     expect(rows).toHaveLength(10);
     expect(Array.from(rows).map((row) => row.getAttribute("data-analysis-key"))).toEqual([
