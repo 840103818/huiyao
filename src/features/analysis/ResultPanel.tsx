@@ -116,7 +116,7 @@ export function ResultPanel({ result, generationState, captureMetadata, onRefine
         <div className="analysis-header-actions">{showPanelStatus ? <Badge status={badgeStatus} text={status} /> : null}{onRefine ? <Button size="mini" icon={<IconEdit />} onClick={onRefine}>校正</Button> : null}</div>
       </header>
       <div className="analysis-subhead">
-        <Radio.Group type="button" size="mini" value={activeGroup} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">
+        <Radio.Group className="analysis-group-nav" type="button" size="mini" value={activeGroup} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">
           <Radio value="all">全部</Radio><Radio value="frame">画面</Radio><Radio value="light">光影</Radio><Radio value="imaging">成像</Radio>
         </Radio.Group>
         <div className="analysis-expand-actions"><span>{completedCount}/{rows.length}</span><Dropdown trigger="click" position="br" droplist={<Menu onClickMenuItem={(key) => {

@@ -47,6 +47,8 @@
 
 项目栏密度、项目概览连续布局、摄影测定行高和提示词阅读宽度分别由 `features/projects/projects.css`、`features/analysis/analysis.css` 与 `features/prompts/prompts.css` 维护。结果完成状态不在多个面板重复渲染；统一修订栏只常驻版本、同步状态和“更多”入口，危险删除通过组件内 Modal 明确确认并保留级联影响说明。
 
+摄影测定分组定位由 `ResultPanel` 的 `analysis-group-nav` 承载，继续使用 Arco `Radio.Group` 的语义和键盘行为；视觉覆盖仅位于 `features/analysis/analysis.css`，四段等宽并复用全局表面、边框和焦点 Token，不在组件内写入主题颜色。
+
 设置分类导航由页面内 `IntersectionObserver` 跟踪当前区段，卸载时必须断开观察器；日志工具栏保持筛选组和操作组两个稳定容器，由响应式样式决定是否换行。
 
 图片查看器由独立的 `ImageViewer` 组件负责，`viewerGeometry` 只保存无 DOM 依赖的适应比例、真实像素缩放、平移边界和导航器映射。查看器使用绝对显示比例而不是相对适应比例；高频指针、滚轮和导航器移动通过 `requestAnimationFrame` 合并，渲染只更新 `translate3d + scale`。导航缩略图复用已经加载的图片地址，不重新读取原图或调用 IPC。
