@@ -7,6 +7,7 @@ trap 'rm -rf "$FRONTEND_DIST"' EXIT
 cd "$ROOT_DIR"
 
 npm run verify:lockfile
+npm run spec:validate
 npm test
 npm run build -- --outDir "$FRONTEND_DIST" --emptyOutDir
 npm run verify:frontend-dist -- "$FRONTEND_DIST"

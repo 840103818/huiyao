@@ -1,5 +1,7 @@
 # 总体架构
 
+本文解释 React、Tauri、Rust、SQLite、Keychain 和模型服务如何实现系统能力；可观察行为由 [OpenSpec 当前规格](../../openspec/README.md)定义，架构变更不得绕过对应 capability delta。
+
 ## 系统边界
 
 ```mermaid

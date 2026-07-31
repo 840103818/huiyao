@@ -1,5 +1,7 @@
 # 安全边界
 
+本文解释安全实现与审计方式；规范性安全场景以 [desktop-security](../../openspec/specs/desktop-security/spec.md) 为准，原图和网络容量边界分别补充在 [image-ingestion-and-originals](../../openspec/specs/image-ingestion-and-originals/spec.md) 与 [model-generation-streaming](../../openspec/specs/model-generation-streaming/spec.md)。
+
 ## 凭证与网络
 
 - API Key 和原图加密密钥分别存入 macOS Keychain。

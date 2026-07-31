@@ -17,6 +17,9 @@
     "check": "./scripts/check.sh",
     "test": "vitest run",
     "test:watch": "vitest",
+    "spec:list": "openspec list",
+    "spec:validate": "openspec validate --all --strict --no-interactive",
+    "spec:view": "openspec view",
     "verify:frontend-dist": "node --no-warnings --experimental-vm-modules scripts/verify-frontend-dist.mjs",
     "verify:lockfile": "node scripts/verify-package-lock.mjs",
     "verify:release": "./scripts/verify-release.sh",
@@ -30,6 +33,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "1.7.0",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

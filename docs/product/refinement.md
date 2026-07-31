@@ -2,6 +2,8 @@
 
 专业精修用于在保留模型基础结果的前提下，校正摄影测定并派生可追溯的提示词版本。基础结果始终只读，人工校正、AI 重测、提示词编辑和平台优化都会创建统一修订。
 
+本文说明用户操作；摄影测定字段契约以 [photography-analysis](../../openspec/specs/photography-analysis/spec.md) 为准，校正、锁定、同步和修订关系以 [result-revisions](../../openspec/specs/result-revisions/spec.md) 为准。
+
 ## 修订模型
 
 - 统一修订栏显示当前修订名称、来源和提示词同步状态，并提供切换、比较和更多操作。
@@ -39,6 +41,8 @@
 - 比较抽屉通过“摄影测定 / 提示词”页签并排展示来源与目标修订。
 - 复制完整结果以及 Markdown、Schema 2 JSON、纯文本和批量 ZIP 导出均使用当前活动修订。
 - 导出包含原图时，解密后的图片会以未加密形式写出，应只选择可信位置。
+
+复制与导出的最终结果权限由 [result-export-and-recovery](../../openspec/specs/result-export-and-recovery/spec.md) 定义。
 
 ## 能力限制
 

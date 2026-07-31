@@ -1,5 +1,7 @@
 # 前端架构
 
+本文记录前端模块与状态边界。项目、图片、流式生成、摄影测定、修订和交互行为的验收契约统一索引在 [OpenSpec 规格中心](../../openspec/README.md)。
+
 ## 项目工作区
 
 `features/projects/` 管理项目任务栏、概览、批量导入和受控队列。队列并发固定为 1 或 2，单项异常由调度器隔离；只有选中任务把 SSE 增量送入完整结果组件。任务、项目和预设只能通过 `infrastructure/tauri/workspace.ts` 访问 Rust，不写入 `localStorage`。

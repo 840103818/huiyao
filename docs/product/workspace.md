@@ -1,5 +1,7 @@
 # 项目工作台操作说明
 
+本文说明工作台操作；项目、队列和预设的验收行为以 [project-workspace](../../openspec/specs/project-workspace/spec.md) 为准，图片校验与原图归档以 [image-ingestion-and-originals](../../openspec/specs/image-ingestion-and-originals/spec.md) 为准。
+
 ## 项目与任务
 
 - 新安装自动创建“我的项目”；升级用户的旧历史幂等迁入“历史记录”项目。
@@ -39,3 +41,5 @@
 - 项目和任务删除后保留 30 天，可恢复、立即永久删除或清空废纸篓。
 - 批量导出支持 Markdown、稳定 Schema JSON、纯提示词和可选原图。
 - 导出原图会把解密字节写入 ZIP；仅向可信位置导出，并自行管理外部副本。
+
+批量格式、原生保存对话框、临时文件和失败恢复规则参见 [result-export-and-recovery](../../openspec/specs/result-export-and-recovery/spec.md)。
