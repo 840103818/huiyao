@@ -19,6 +19,16 @@
 - 不自动合并到 `master`；最终必须提醒用户人工检查并合并。
 - 本地 `master` 与远端分叉时，不擅自拉取、变基或强制推送。
 
+## OpenSpec 工作流
+
+- OpenSpec `1.7.0` 是复杂变更的规格与验收入口；依赖版本固定在 `package.json`，统一通过 `npx openspec` 或 npm 脚本调用。
+- 新功能、跨前后端改动、IPC 或序列化变更、SQLite 迁移、安全边界调整和大范围 UI 重构必须先创建 `openspec/changes/<change-name>/`。
+- 文案修正、纯文档、依赖维护和边界明确的小修复可直接走独立分支，不强制创建 change。
+- 开始复杂变更时依次使用 `$openspec-explore`、`$openspec-propose`；批准后使用 `$openspec-apply-change`，完成后验证并使用 `$openspec-archive-change`。
+- `openspec/specs/` 是稳定行为规格，`openspec/changes/` 是待实施增量；`docs/tasks/` 仅保留历史记录，不再新建重复计划。
+- OpenSpec 不替代产品、设计、工程、ADR、测试和界面基线文档；归档前必须同步这些长期事实来源。
+- 规格与变更文件不得包含凭证、用户原图、图片 Data URL、模型正文、未脱敏日志或本机隐私路径。
+
 ## 目录边界
 
 - `src/app/`：应用装配、Shell、页面路由和顶层状态。
@@ -32,6 +42,8 @@
 - `src-tauri/src/domain/`：领域模型与错误契约，不依赖 Tauri。
 - `src-tauri/src/infrastructure/`：HTTP、持久化、图片、日志、Keychain 和原生对话框。
 - `docs/`：产品、设计、工程、运维、ADR 和任务记录。
+- `openspec/`：稳定行为规格、活动变更及归档记录。
+- `.codex/skills/openspec-*`：由 OpenSpec 生成并随仓库版本化的 Codex 工作流。
 - `artifacts/`：本地产物，禁止提交。
 
 依赖方向为 `app/features -> infrastructure/shared` 和 `commands -> application/domain/infrastructure`。禁止 `shared` 反向依赖具体功能，禁止 `domain` 依赖 Tauri。
@@ -56,7 +68,7 @@ git diff --check
 codegraph sync
 ```
 
-安全相关变更补充依赖审计；发布变更按 `docs/operations/release.md` 验证 Apple Silicon 产物。
+`npm run check` 包含严格 OpenSpec 校验。安全相关变更补充依赖审计；发布变更按 `docs/operations/release.md` 验证 Apple Silicon 产物。
 
 ## 文档与界面留存
 

@@ -220,7 +220,7 @@ git diff --check
 codegraph sync
 ```
 
-`npm run check` 会依次执行 npm 锁文件供应链检查、全部 Vitest 测试、TypeScript/Vite 生产构建、前端依赖环检查、Rust 格式检查、Rust 测试和 Apple Silicon 目标依赖断言。
+`npm run check` 会依次执行 npm 锁文件供应链检查、严格 OpenSpec 校验、全部 Vitest 测试、TypeScript/Vite 生产构建、前端依赖环检查、Rust 格式检查、Rust 测试和 Apple Silicon 目标依赖断言。
 
 依赖审计：
 
@@ -271,6 +271,9 @@ artifacts/release/绘钥_2.0.2_aarch64.dmg
 | `npm run test:watch` | 以监听模式运行 Vitest |
 | `npm run build` | 执行 TypeScript 检查并构建前端 |
 | `npm run check` | 执行前端、Rust 和生产资源完整检查 |
+| `npm run spec:list` | 查看活动 OpenSpec 变更 |
+| `npm run spec:validate` | 严格校验全部规格和变更 |
+| `npm run spec:view` | 打开 OpenSpec 交互视图 |
 | `npm run verify:lockfile` | 检查 npm 锁文件来源和完整性摘要 |
 | `npm run verify:frontend-dist -- dist` | 检查生产 JavaScript 依赖环 |
 | `npm run build:macos:arm64` | 构建 Apple Silicon App 与 DMG |
@@ -317,7 +320,7 @@ rustup run stable rustc --version
 | --- | --- |
 | 使用绘钥 | [产品说明](docs/product/overview.md) · [项目工作台](docs/product/workspace.md) · [专业精修](docs/product/refinement.md) |
 | 理解设计 | [设计系统](docs/design/ui-system.md) · [交互规范](docs/design/interaction.md) · [界面基线](docs/assets/ui/current/README.md) |
-| 参与开发 | [总体架构](docs/engineering/architecture.md) · [前端架构](docs/engineering/frontend.md) · [后端架构](docs/engineering/backend.md) · [开发指南](docs/operations/development.md) |
+| 参与开发 | [总体架构](docs/engineering/architecture.md) · [前端架构](docs/engineering/frontend.md) · [后端架构](docs/engineering/backend.md) · [OpenSpec 工作流](docs/engineering/openspec.md) · [开发指南](docs/operations/development.md) |
 | 安全与验证 | [IPC 契约](docs/engineering/ipc-contracts.md) · [安全边界](docs/engineering/security.md) · [测试策略](docs/engineering/testing.md) |
 | 构建发布 | [发布指南](docs/operations/release.md) · [版本记录](CHANGELOG.md) · [安全策略](SECURITY.md) |
 
@@ -325,7 +328,7 @@ rustup run stable rustc --version
 
 1. 阅读 [AGENTS.md](AGENTS.md) 和 [贡献指南](CONTRIBUTING.md)。
 2. 从最新 `master` 创建独立功能分支，不直接在 `master` 开发。
-3. 保持改动聚焦，为行为变化补充测试，并同步用户说明与技术说明。
+3. 复杂变更先创建 OpenSpec change；保持改动聚焦，为行为变化补充测试，并同步用户说明与技术说明。
 4. 页面变化需更新脱敏视觉基线；禁止提交凭证、用户图片、日志、`dist/` 或 `artifacts/`。
 5. 提交前运行 `npm run check`、`git diff --check` 和 `codegraph sync`。
 

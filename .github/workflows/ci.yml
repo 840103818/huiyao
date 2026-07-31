@@ -32,6 +32,8 @@ jobs:
         run: npm run verify:lockfile
       - name: Install dependencies
         run: npm ci --registry=https://registry.npmjs.org
+      - name: Validate OpenSpec specifications
+        run: npm run spec:validate
       - name: npm dependency audit
         run: npm audit --registry=https://registry.npmjs.org
       - name: Frontend tests

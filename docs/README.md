@@ -26,7 +26,7 @@
 1. [总体架构](engineering/architecture.md)
 2. [前端架构](engineering/frontend.md)与[后端架构](engineering/backend.md)
 3. [IPC 契约](engineering/ipc-contracts.md)与[数据迁移](engineering/data-migration.md)
-4. [安全边界](engineering/security.md)与[测试策略](engineering/testing.md)
+4. [安全边界](engineering/security.md)、[测试策略](engineering/testing.md)与[OpenSpec 工作流](engineering/openspec.md)
 5. [架构决策记录](adr/README.md)
 
 ## 开发与发布
@@ -34,6 +34,7 @@
 | 文档 | 适合了解 |
 | --- | --- |
 | [开发指南](operations/development.md) | 环境、调试、Mock、测试和 CodeGraph |
+| [OpenSpec 工作流](engineering/openspec.md) | 复杂变更的规格、实施、验证和归档 |
 | [故障排查](operations/troubleshooting.md) | 白屏、构建、签名、网络与本地数据问题 |
 | [macOS 发布指南](operations/release.md) | 检查、打包、签名、验证、标签和 GitHub Release |
 
@@ -42,7 +43,7 @@
 ## 维护规则
 
 - 当前行为写入 `product/`、`design/`、`engineering/` 或 `operations/`；不要把实施计划当成产品说明。
-- 长期任务记录只追加到 `tasks/`，并明确版本和验证状态。
+- `openspec/specs/` 维护当前稳定行为，`openspec/changes/` 维护复杂变更；既有 `tasks/` 仅作为历史记录保留。
 - IPC、持久化或导出格式变化时，同步更新 TypeScript、Rust、浏览器降级实现及对应工程文档。
 - 页面布局或样式变化时，同步覆盖 `assets/ui/current/` 中受影响的脱敏截图和索引。
 - 发布前检查 README、版本记录、安装包名称和三处版本号一致。

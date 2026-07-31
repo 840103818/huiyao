@@ -15,6 +15,7 @@
 ## 标准检查
 
 ```bash
+npm run spec:validate
 npm run check
 git diff --check
 npm audit --registry=https://registry.npmjs.org
@@ -22,7 +23,9 @@ cargo audit --file src-tauri/Cargo.lock
 codegraph sync
 ```
 
-`npm run check` 使用临时前端输出目录，不覆盖仓库 `dist/`，并验证 npm 锁文件只引用官方源且每个下载项都有完整性摘要，同时检查生产 JavaScript 依赖图没有循环加载。Rust 测试和目标依赖图使用 `--locked`，锁文件与清单不一致时直接失败。
+`npm run check` 会先以严格、非交互模式验证全部 OpenSpec 规格和活动变更，再使用临时前端输出目录完成其余检查，不覆盖仓库 `dist/`。它还会验证 npm 锁文件只引用官方源且每个下载项都有完整性摘要，并检查生产 JavaScript 依赖图没有循环加载。Rust 测试和目标依赖图使用 `--locked`，锁文件与清单不一致时直接失败。
+
+复杂变更的验收场景必须写入对应 `openspec/changes/<change-name>/specs/`，实现测试负责证明场景，`openspec validate --all --strict --no-interactive` 负责检查规格结构。OpenSpec 校验不能替代 Vitest、Rust、Mock HTTP、原生冒烟或视觉验证。
 
 ## 回归要求
 

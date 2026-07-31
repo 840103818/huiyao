@@ -47,11 +47,23 @@ http://127.0.0.1:1420/?workspace-preview=streaming
 
 1. 检查 `git status`，记录并保留已有未提交修改；从当前稳定基线建立独立功能分支。
 2. 阅读对应产品、设计和工程文档。
-3. 存在 `.codegraph/` 时运行 `codegraph explore "问题或符号"`。
-4. 按功能目录修改代码并补充共置测试。
-5. 同步操作说明、技术说明；页面变更同步视觉基线。
-6. 运行 `npm run check`、`git diff --check` 和 `codegraph sync`。
-7. 不自动合并 `master`；向维护者提交分支名、测试结果和人工合并提示。
+3. 复杂或跨层变更先创建 OpenSpec change，并确认 proposal、增量 specs、design 和 tasks；小型修复可跳过。
+4. 存在 `.codegraph/` 时运行 `codegraph explore "问题或符号"`。
+5. 按功能目录修改代码并补充共置测试。
+6. 同步操作说明、技术说明；页面变更同步视觉基线。
+7. 运行 `npm run check`、`git diff --check` 和 `codegraph sync`，完成后归档 OpenSpec change。
+8. 不自动合并 `master`；向维护者提交分支名、测试结果和人工合并提示。
+
+OpenSpec 版本随 npm 锁文件固定，不依赖开发机全局版本。常用入口：
+
+```bash
+npx openspec --version
+npm run spec:list
+npm run spec:validate
+npm run spec:view
+```
+
+完整职责边界、命令流程和规格写法参见 [OpenSpec 工作流](../engineering/openspec.md)。
 
 ## 工作区数据库调试
 

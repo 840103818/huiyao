@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  Product: Huiyao is a local macOS digital darkroom for image analysis, prompt refinement, and encrypted original-image management.
+  Stack: React 19, TypeScript, Arco Design, Tauri 2, Rust, and SQLite.
+  Architecture: The frontend is feature-first; Rust uses DDD-lite. TypeScript calls desktop capabilities only through src/infrastructure/tauri. Rust domain code must not depend on Tauri.
+  Compatibility: Preserve existing Tauri command names, Channel events, serde fields, workspace.sqlite3 data, encrypted originals, Keychain service names, and legacy history unless a migration is explicitly approved.
+  Security: Never place credentials, image bytes, Data URLs, raw model content, private file paths, or unsanitized diagnostics in OpenSpec artifacts.
+  Workflow: Complex or cross-layer changes use OpenSpec. Small copy, documentation, dependency, and narrowly scoped bug fixes may use the normal branch workflow without a change artifact.
+  Verification: npm run check, git diff --check, and codegraph sync are required. Security changes also require dependency audits. UI changes require sanitized current screenshots and corresponding user and engineering documentation.
+
+rules:
+  proposal:
+    - State the user problem, goals, non-goals, acceptance criteria, and affected capabilities.
+    - Identify compatibility, security, performance, migration, and rollout risks when applicable.
+    - Keep runtime behavior separate from implementation details.
+  design:
+    - Describe frontend, Rust, IPC, persistence, cancellation, and error-handling impacts where relevant.
+    - Any IPC or serialized model change must cover TypeScript contracts, Rust serde models, browser fallback behavior, and tests.
+    - Any SQLite change must include an idempotent migration, rollback behavior, and legacy database tests.
+    - Any UI change must identify affected viewport, theme, keyboard, focus, reduced-motion, and screenshot checks.
+  tasks:
+    - Organize work into implementation, review, testing, documentation, and final validation steps.
+    - Name the verification command or observable result for each risky task.
+    - Do not combine unrelated migrations or destructive operations into one task.
+
+operations:
+  apply:
+    guidance:
+      - Work on a codex/ prefixed branch and never modify master directly.
+      - Preserve unrelated user changes and keep the implementation scoped to the approved artifacts.
+      - Update user documentation, engineering documentation, and sanitized UI baselines with the code they describe.
+  archive:
+    guidance:
+      - Archive only after all tasks and acceptance scenarios are verified.
+      - Record the actual npm run check, git diff --check, codegraph sync, and applicable audit results.
+      - Do not merge to master, push a release, or delete branches unless the user explicitly requests it.
