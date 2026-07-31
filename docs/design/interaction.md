@@ -1,5 +1,7 @@
 # 交互规范
 
+本文解释交互设计选择和实现验收重点；稳定交互契约以 [application-interaction](../../openspec/specs/application-interaction/spec.md) 为准，摄影测定与统一修订分别由 [photography-analysis](../../openspec/specs/photography-analysis/spec.md) 和 [result-revisions](../../openspec/specs/result-revisions/spec.md) 定义。
+
 ## 项目任务栏
 
 - 宽屏左栏默认 272px，可在 240–336px 内调整；窄于 1240px 使用同构 Drawer。

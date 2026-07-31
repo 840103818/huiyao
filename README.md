@@ -16,6 +16,7 @@
 - [开发环境](#开发环境)
 - [工程架构](#工程架构)
 - [数据与安全](#数据与安全)
+- [规格驱动开发](#规格驱动开发)
 - [测试与质量检查](#测试与质量检查)
 - [构建与发布](#构建与发布)
 - [常用命令](#常用命令)
@@ -210,6 +211,19 @@ artifacts/                本地产物目录，不提交 Git
 
 浏览器开发模式不会把原图写入 `localStorage`。完整安全边界、RustSec 例外和报告方式参见[安全说明](docs/engineering/security.md)与[安全策略](SECURITY.md)。
 
+## 规格驱动开发
+
+复杂功能、跨前后端契约、数据迁移、安全边界和大范围 UI 调整使用 OpenSpec 管理。当前稳定行为位于 [`openspec/specs/`](openspec/specs/)，变更中的提案、设计、增量规格和任务位于 `openspec/changes/`；产品、设计和工程文档负责解释使用方式与实现边界，不再作为唯一行为契约。
+
+```text
+$openspec-explore
+$openspec-propose "变更描述"
+$openspec-apply-change
+$openspec-archive-change
+```
+
+详细命令、工件职责和完整示例参见 [OpenSpec 规格中心](openspec/README.md)与[开发工作流](docs/engineering/openspec.md)。
+
 ## 测试与质量检查
 
 运行完整检查：
@@ -320,7 +334,7 @@ rustup run stable rustc --version
 | --- | --- |
 | 使用绘钥 | [产品说明](docs/product/overview.md) · [项目工作台](docs/product/workspace.md) · [专业精修](docs/product/refinement.md) |
 | 理解设计 | [设计系统](docs/design/ui-system.md) · [交互规范](docs/design/interaction.md) · [界面基线](docs/assets/ui/current/README.md) |
-| 参与开发 | [总体架构](docs/engineering/architecture.md) · [前端架构](docs/engineering/frontend.md) · [后端架构](docs/engineering/backend.md) · [OpenSpec 工作流](docs/engineering/openspec.md) · [开发指南](docs/operations/development.md) |
+| 参与开发 | [OpenSpec 规格中心](openspec/README.md) · [总体架构](docs/engineering/architecture.md) · [前端架构](docs/engineering/frontend.md) · [后端架构](docs/engineering/backend.md) · [OpenSpec 工作流](docs/engineering/openspec.md) · [开发指南](docs/operations/development.md) |
 | 安全与验证 | [IPC 契约](docs/engineering/ipc-contracts.md) · [安全边界](docs/engineering/security.md) · [测试策略](docs/engineering/testing.md) |
 | 构建发布 | [发布指南](docs/operations/release.md) · [版本记录](CHANGELOG.md) · [安全策略](SECURITY.md) |
 

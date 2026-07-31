@@ -1,6 +1,20 @@
 # 绘钥文档中心
 
-本文档中心按“使用产品、理解设计、参与开发、完成发布”四条路径组织。根目录 [README](../README.md) 提供下载安装、首次配置、开发环境和常见问题的统一入口；本文档进一步索引专题说明。当前文档对应绘钥 `2.0.2`，历史实施记录保留在 `tasks/`，不作为当前行为说明。
+本文档中心按“使用产品、理解设计、参与开发、完成发布”四条路径组织。根目录 [README](../README.md) 提供下载安装、首次配置、开发环境和常见问题的统一入口；本文档进一步索引专题说明。当前文档对应绘钥 `2.0.2`，规范性行为以 [OpenSpec 当前规格](../openspec/README.md)为准；历史实施记录保留在 `tasks/`，不作为当前行为说明。
+
+## 当前规格
+
+| 能力 | OpenSpec |
+| --- | --- |
+| 项目、任务、队列、预设与废纸篓 | [project-workspace](../openspec/specs/project-workspace/spec.md) |
+| 图片导入、原图归档与恢复 | [image-ingestion-and-originals](../openspec/specs/image-ingestion-and-originals/spec.md) |
+| 模型请求、SSE、回退与取消 | [model-generation-streaming](../openspec/specs/model-generation-streaming/spec.md) |
+| 摄影测定与 EXIF 白名单 | [photography-analysis](../openspec/specs/photography-analysis/spec.md) |
+| 人工校正、AI 重测与统一修订 | [result-revisions](../openspec/specs/result-revisions/spec.md) |
+| 复制、导出、诊断与恢复 | [result-export-and-recovery](../openspec/specs/result-export-and-recovery/spec.md) |
+| 凭证、网络、本地数据与 WebView 安全 | [desktop-security](../openspec/specs/desktop-security/spec.md) |
+| 工作台、查看器、焦点与动态效果 | [application-interaction](../openspec/specs/application-interaction/spec.md) |
+| SQLite、旧历史与序列化兼容 | [data-compatibility](../openspec/specs/data-compatibility/spec.md) |
 
 ## 用户与产品
 
@@ -44,6 +58,7 @@
 
 - 当前行为写入 `product/`、`design/`、`engineering/` 或 `operations/`；不要把实施计划当成产品说明。
 - `openspec/specs/` 维护当前稳定行为，`openspec/changes/` 维护复杂变更；既有 `tasks/` 仅作为历史记录保留。
+- 说明文档可以摘要规格，但数值、状态、兼容和安全要求冲突时以当前 OpenSpec 和已验证代码为准。
 - IPC、持久化或导出格式变化时，同步更新 TypeScript、Rust、浏览器降级实现及对应工程文档。
 - 页面布局或样式变化时，同步覆盖 `assets/ui/current/` 中受影响的脱敏截图和索引。
 - 发布前检查 README、版本记录、安装包名称和三处版本号一致。

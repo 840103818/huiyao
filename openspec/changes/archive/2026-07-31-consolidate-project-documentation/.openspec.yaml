@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-07-31
+goal: 建立 OpenSpec 作为当前行为规格的唯一事实来源，同时保留面向用户、架构和运维的说明文档。

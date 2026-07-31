@@ -1,5 +1,7 @@
 # Rust 后端架构
 
+本文记录 Rust 分层和基础设施实现。数据兼容、桌面安全、模型传输、原图和导出行为的验收契约统一索引在 [OpenSpec 规格中心](../../openspec/README.md)。
+
 ## SQLite 工作区
 
 `infrastructure/persistence/workspace.rs` 是项目数据的唯一持久化入口。它负责 Schema、WAL/外键、分页搜索、状态机、标签、预设、软删除和旧历史迁移。Tauri 适配位于 `commands/workspace.rs`，ZIP 编排位于 `application/workspace_export.rs`。

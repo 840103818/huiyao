@@ -33,6 +33,8 @@
 
 `docs/tasks/` 中的既有记录继续保留，但不再为新变更建立重复计划。OpenSpec 归档记录变更过程，长期有效结论仍需同步到对应文档和代码测试。
 
+当前 capability 及职责索引统一维护在 [OpenSpec 规格中心](../../openspec/README.md)。产品或技术文档可以摘要关键行为，但当数值、状态、兼容或安全要求不一致时，应先核对当前代码和测试，再修正 OpenSpec 与说明文档，不能只修改其中一处。
+
 ## 初始化与版本
 
 OpenSpec 固定为 npm 开发依赖，Node.js 最低版本与项目一致，均为 `20.19.0`。新开发机只需执行：
@@ -64,6 +66,19 @@ npx openspec validate <change-name> --strict --no-interactive
 npm run spec:validate
 npm run spec:view
 ```
+
+### 一个完整示例
+
+假设要为批量导出增加 CSV：
+
+1. 在 `codex/add-csv-export` 分支使用 `$openspec-explore`，确认当前导出格式、安全边界和 Rust 原生保存路径。
+2. 使用 `$openspec-propose "批量导出增加 CSV"`。Proposal 应把 `result-export-and-recovery` 列为 Modified Capability。
+3. 在 delta spec 的 `## ADDED Requirements` 中增加 CSV 行为和成功、取消、写入失败场景；如果改变既有导出行为，则把完整原 Requirement 放入 `## MODIFIED Requirements`。
+4. Review proposal、design 和 tasks 后使用 `$openspec-apply-change` 实施。每完成一个任务立即勾选，不在结束时批量伪造完成状态。
+5. 运行单 change 严格校验与全部项目验证，确认 Markdown/JSON/文本仍兼容。
+6. 使用 `$openspec-archive-change` 将 delta 合并到主规格，再提交分支供人工合并。
+
+如果只修正“导出”按钮文案且不改变行为，则不创建 change，直接在独立分支修改、测试并同步说明即可。
 
 ## 规格要求
 

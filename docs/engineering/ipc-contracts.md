@@ -1,5 +1,7 @@
 # IPC 契约
 
+本文记录当前命令和序列化接口，属于工程契约索引。用户可观察的生成、原图、修订、导出和兼容行为分别由 [model-generation-streaming](../../openspec/specs/model-generation-streaming/spec.md)、[image-ingestion-and-originals](../../openspec/specs/image-ingestion-and-originals/spec.md)、[result-revisions](../../openspec/specs/result-revisions/spec.md)、[result-export-and-recovery](../../openspec/specs/result-export-and-recovery/spec.md)和[data-compatibility](../../openspec/specs/data-compatibility/spec.md)定义。
+
 ## 稳定原则
 
 - TypeScript 使用 camelCase，Rust 使用 snake_case 并由 serde 转换。

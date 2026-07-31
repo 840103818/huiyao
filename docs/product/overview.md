@@ -1,5 +1,7 @@
 # 产品与使用说明
 
+本文面向绘钥使用者解释产品流程。规范性行为分别由 [项目工作区](../../openspec/specs/project-workspace/spec.md)、[图片与原图](../../openspec/specs/image-ingestion-and-originals/spec.md)、[模型流式生成](../../openspec/specs/model-generation-streaming/spec.md)、[摄影测定](../../openspec/specs/photography-analysis/spec.md)和[统一修订](../../openspec/specs/result-revisions/spec.md)定义。
+
 ## 定位
 
 绘钥面向设计师、摄影师和内容创作者，将参考图片转化为可复用的摄影测定结果和中英文生图提示词。2.0 以本地项目组织批处理和专业单图精修，强调数据控制、真实流式反馈和可排查性，不提供账号、云同步或内置生图。
@@ -24,6 +26,8 @@
 - 项目和任务删除后进入废纸篓，保留 30 天。
 - 旧历史迁入“历史记录”项目；没有原图的旧任务仍可查看和复制结果。
 
+完整的容量、加密、恢复和兼容场景参见 [图片与原图规格](../../openspec/specs/image-ingestion-and-originals/spec.md)、[桌面安全规格](../../openspec/specs/desktop-security/spec.md)与[数据兼容规格](../../openspec/specs/data-compatibility/spec.md)。
+
 ## 主要快捷键
 
 | 场景 | 快捷键 |
@@ -41,6 +45,8 @@
 ## 模型兼容性
 
 模型服务必须兼容 `{Base URL}/chat/completions`，图片请求需支持 `image_url` Data URL。绘钥优先使用 SSE 和 `stream_options.include_usage`，不兼容时依次重试普通流式和非流式响应；兼容回退不会伪造逐字动画。
+
+请求容量、停止、断流和部分结果权限以 [模型流式生成规格](../../openspec/specs/model-generation-streaming/spec.md)为准。
 
 ## 原生界面语言
 

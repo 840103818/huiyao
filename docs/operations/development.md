@@ -63,7 +63,7 @@ npm run spec:validate
 npm run spec:view
 ```
 
-完整职责边界、命令流程和规格写法参见 [OpenSpec 工作流](../engineering/openspec.md)。
+完整职责边界、命令流程、工件示例和规格写法参见 [OpenSpec 工作流](../engineering/openspec.md)，当前稳定能力参见 [OpenSpec 规格中心](../../openspec/README.md)。
 
 ## 工作区数据库调试
 

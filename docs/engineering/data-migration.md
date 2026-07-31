@@ -1,5 +1,7 @@
 # 2.0 数据迁移
 
+本文保留迁移实现顺序和恢复说明；当前兼容性契约以 [data-compatibility](../../openspec/specs/data-compatibility/spec.md) 为准。
+
 ## 迁移目标
 
 1.0 使用应用私有目录中的 `workspace.sqlite3` 管理项目、任务、标签、预设、提示词版本和软删除状态。数据库启用 WAL、外键、5 秒忙等待和私有文件权限。
