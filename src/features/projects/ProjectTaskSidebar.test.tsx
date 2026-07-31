@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import "@arco-design/web-react/dist/css/arco.css";
+import "../../styles/index.css";
 import type { ProjectTask } from "../../shared/contracts";
 import { ProjectTaskSidebar } from "./ProjectTaskSidebar";
 
@@ -80,5 +82,31 @@ describe("ProjectTaskSidebar", () => {
     fireEvent.change(screen.getByPlaceholderText("使用逗号分隔标签"), { target: { value: "商业, 精修" } });
     fireEvent.click(screen.getByRole("button", { name: "确定" }));
     await waitFor(() => expect(props.onBatchTags).toHaveBeenCalledWith([task.id], ["商业", "精修"], false));
+  });
+
+  it("updates detail and automatic optimization in the preset editor", async () => {
+    const props = renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "编辑预设" }));
+    expect(screen.getByText("复制为自定义预设")).toBeInTheDocument();
+
+    const detailSelect = screen.getByRole("combobox", { name: "详细程度" });
+    fireEvent.click(detailSelect);
+    const detailPopup = Array.from(document.querySelectorAll<HTMLElement>(".arco-trigger"))
+      .find((element) => element.textContent?.includes("精简"));
+    expect(detailPopup).toBeDefined();
+    expect(Number(getComputedStyle(detailPopup!).zIndex)).toBeGreaterThan(1050);
+    fireEvent.click(await screen.findByText("详细"));
+    expect(detailSelect).toHaveTextContent("详细");
+
+    fireEvent.click(screen.getByRole("combobox", { name: "自动优化" }));
+    fireEvent.click(await screen.findByText("Flux"));
+    expect(screen.getByPlaceholderText("自动优化附加要求")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "确定" }));
+    await waitFor(() => expect(props.onSavePreset).toHaveBeenCalledWith(
+      "标准反推 副本",
+      expect.objectContaining({ detailLevel: "detailed", autoOptimizeTarget: "flux" }),
+      undefined,
+    ));
   });
 });

@@ -13,6 +13,8 @@
 - `workspace-light-1440x900.png`：宽屏浅色项目概览与固定项目栏。
 - `workspace-dark-1120x720.png`：最小窗口深色项目概览。
 - `project-drawer-dark-1120x720.png`：窄屏项目任务 Drawer。
+- `preset-editor-detail-menu-light-1440x900.png`：自定义预设的详细程度下拉菜单位于 Modal 之上。
+- `preset-editor-controls-light-1440x900.png`：详细程度与自动优化选择后的预设编辑状态。
 - `selected-task-light-1440x900.png`：完整摄影测定与提示词结果工作台。
 - `settings-dark-1120x720.png`：当前分类高亮、连续表单与固定保存区。
 - `logs-light-1440x900.png`：筛选/操作分组工具栏、Console 风格日志页与空状态。

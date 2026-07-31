@@ -6,6 +6,8 @@
 
 `features/projects/` 管理项目任务栏、概览、批量导入和受控队列。队列并发固定为 1 或 2，单项异常由调度器隔离；只有选中任务把 SSE 增量送入完整结果组件。任务、项目和预设只能通过 `infrastructure/tauri/workspace.ts` 访问 Rust，不写入 `localStorage`。
 
+预设编辑 Modal 内的 Select 使用 `preset-editor-select-popup` 提升弹层，确保详细程度和自动优化选项始终位于全局 Modal 遮罩之上；控件通过明确的无障碍名称参与键盘和自动化操作。
+
 桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。开发环境还支持脱敏工作区视觉预览：`workspace-preview=1` 显示项目概览，`workspace-preview=task` 显示完整任务结果，`workspace-preview=streaming` 显示生成中间态；`theme-preview=light|dark` 固定截图主题，`interaction-preview=refinement|compare` 打开专业精修关键状态。这些入口只在 `import.meta.env.DEV` 下启用，不调用模型、Keychain、SQLite 或原图接口。
 
 `app/shell/WorkspaceLayout.tsx` 负责项目栏与视觉输入/结果的横向布局。它只接收渲染节点和宽度偏好，不持有项目或生成业务状态；拖动期间使用本地实时值，结束后通过 `App` 的工作区偏好更新函数持久化。范围同时在 React、浏览器降级设置和 Rust `WorkspacePreferences::normalized` 中限制。

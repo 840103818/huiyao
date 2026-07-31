@@ -43,6 +43,7 @@
 .preset-requirements { margin-top: 10px; }
 .preset-editor-field { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
 .preset-editor-field .arco-radio-group { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.preset-editor-select-popup { z-index: 1060 !important; }
 
 .project-overview { position: relative; min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
 .overview-content { width: min(960px, calc(100% - 72px)); margin: 0 auto; padding: 48px 0 56px; }

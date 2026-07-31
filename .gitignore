@@ -42,3 +42,8 @@ canvas/
 !.vscode/settings.json
 *.swp
 *.swo
+
+
+# Added by cargo
+
+/target
