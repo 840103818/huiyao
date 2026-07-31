@@ -7,6 +7,7 @@ import { WorkspaceLayout } from "./shell/WorkspaceLayout";
 import { useMediaQuery } from "./state/useMediaQuery";
 import { useTheme } from "./state/useTheme";
 import { useClipboardImage, useWorkspaceShortcuts } from "./state/useWorkspaceInteractions";
+import { AnalysisRunCoordinator } from "./state/analysisRunCoordinator";
 import { countCompletedAnalysis, fileTitle, generationStateClass, generationStateLabel, simplifyAspectRatio, toImageInfo } from "./state/workspace";
 import { ResultsWorkspace } from "../features/analysis/ResultsWorkspace";
 import { Sidebar } from "../features/history/Sidebar";
@@ -119,7 +120,9 @@ export default function App() {
   const previewMode = previewParams?.get("workspace-preview") ?? null;
   const previewTheme = previewParams?.get("theme-preview");
   const previewInteractionValue = previewParams?.get("interaction-preview");
+  const previewGenerationValue = previewParams?.get("generation-preview");
   const previewInteraction = previewInteractionValue === "refinement" || previewInteractionValue === "compare" ? previewInteractionValue : undefined;
+  const previewGeneration = previewGenerationValue === "locked" || previewGenerationValue === "stopping" || previewGenerationValue === "stopped" ? previewGenerationValue : undefined;
   const previewThemeMode: ThemeMode | undefined = previewTheme === "light" || previewTheme === "dark" ? previewTheme : undefined;
   const workspaceUi = isDesktopApp() || Boolean(previewMode);
   const [messageApi, messageContext] = Message.useMessage();
@@ -136,6 +139,7 @@ export default function App() {
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [projectTaskTotal, setProjectTaskTotal] = useState(0);
   const [activeTaskId, setActiveTaskId] = useState<string>();
+  const [activeTaskSnapshot, setActiveTaskSnapshot] = useState<ProjectTask>();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [taskQuery, setTaskQuery] = useState("");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
@@ -144,7 +148,9 @@ export default function App() {
   const [trash, setTrash] = useState<TrashEntry[]>([]);
   const [batchProgress, setBatchProgress] = useState<BatchProgress>(EMPTY_BATCH_PROGRESS);
   const [queueRunning, setQueueRunning] = useState(false);
-  const [queuePaused, setQueuePaused] = useState(false);
+  const [analysisLocked, setAnalysisLocked] = useState(false);
+  const [rerunningTaskId, setRerunningTaskId] = useState<string>();
+  const [resultBusySources, setResultBusySources] = useState({ revision: false, prompt: false });
   const [batchImporting, setBatchImporting] = useState(false);
   const [batchImportLabel, setBatchImportLabel] = useState<string>();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -178,32 +184,35 @@ export default function App() {
   const [firstTokenMs, setFirstTokenMs] = useState<number>();
   const [receivedCharacters, setReceivedCharacters] = useState(0);
   const receivedCharactersRef = useRef(0);
+  const preserveResultDuringAnalysisRef = useRef(false);
   const streamPrinterRef = useRef<ReturnType<typeof createStreamPrinterController> | null>(null);
   if (!streamPrinterRef.current) {
     streamPrinterRef.current = createStreamPrinterController((content) => {
       setReceivedCharacters(receivedCharactersRef.current);
       const partial = parseStreamingResult(content);
-      if (partial) setResult(partial);
+      if (partial && !preserveResultDuringAnalysisRef.current) setResult(partial);
     });
   }
   const themeOverrideRef = useRef<ThemeMode | undefined>(previewThemeMode);
   const requestStartedAtRef = useRef(0);
   const firstTokenRecordedRef = useRef(false);
-  const cancelRequestedRef = useRef(false);
+  const runCoordinatorRef = useRef<AnalysisRunCoordinator | null>(null);
+  if (!runCoordinatorRef.current) runCoordinatorRef.current = new AnalysisRunCoordinator(cancelReversePrompt);
   const imageTaskRef = useRef(0);
   const historyRef = useRef<HistoryItem[]>([]);
   const historyQueueRef = useRef<Promise<void>>(Promise.resolve());
   const preferencesTimerRef = useRef<number | undefined>(undefined);
-  const queuePausedRef = useRef(false);
-  const queueStopRef = useRef(false);
-  const queueInteractionIdsRef = useRef(new Set<string>());
   const batchImportCancelRef = useRef(false);
   const sessionRestoredRef = useRef(false);
-  const loading = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
+  const loading = analysisLocked || ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
+  const resultOperationBusy = resultBusySources.revision || resultBusySources.prompt;
 
   const compactHistory = useMediaQuery("(max-width: 1239px)");
   const showNotice = useCallback((message: string, kind: "success" | "error" = "success") => {
     messageApiRef.current[kind]?.(message);
+  }, []);
+  const handleResultBusyChange = useCallback((source: "revision" | "prompt", busy: boolean) => {
+    setResultBusySources((current) => current[source] === busy ? current : { ...current, [source]: busy });
   }, []);
   const showPasteRejected = useCallback((message: string) => showNotice(message, "error"), [showNotice]);
 
@@ -326,24 +335,27 @@ export default function App() {
       setProjects([previewProject, { ...previewProject, id: "preview-archive", title: "灵感归档", taskCount: 12, completedCount: 12 }]);
       setPresets([previewPreset]); setActivePresetId(previewPreset.id); setActiveProjectId(previewProject.id);
       setProjectTasks(previewTasks);
+      setActiveTaskSnapshot(previewMode === "task" || previewMode === "streaming" ? previewTasks[1] : undefined);
       setProjectTaskTotal(3); setBatchProgress({ total: 3, ready: 1, queued: 0, running: 0, completed: 1, failed: 1, paused: 0 });
       if (previewMode === "task" || previewMode === "streaming") {
+        const previewActive = previewMode === "streaming" || previewGeneration === "locked" || previewGeneration === "stopping";
         const previewInfo: ImageInfo = { name: "studio-product.jpg", width: 3000, height: 2000, size: 2_400_000, mimeType: "image/jpeg" };
         setActiveTaskId("preview-2");
         setDisplayImage(previewImage);
         setDisplayImageInfo(previewInfo);
         setImage({ ...previewInfo, previewUrl: previewImage, modelDataUrl: previewImage, thumbnail: previewImage });
-        setResult(previewMode === "streaming" ? {
+        setResult(previewActive || previewGeneration === "stopped" ? {
           ...previewResult,
           analysis: { ...previewResult.analysis, lighting: "", tonality: "", colors: "", materials: "", style: "", camera: "", postProcessing: "" },
           prompts: { zh: "高端商业产品摄影，一只无品牌的银色金属香氛瓶", en: "" },
         } : previewResult);
-        setIsFinalResult(previewMode === "task");
-        setGenerationState(previewMode === "streaming" ? "streaming" : "complete");
+        setIsFinalResult(!previewActive && previewGeneration !== "stopped");
+        setGenerationState(previewGeneration === "stopping" ? "stopping" : previewGeneration === "stopped" ? "cancelled" : previewActive ? "streaming" : "complete");
+        setAnalysisLocked(previewActive);
         setElapsedMs(6_400);
         setFirstTokenMs(820);
-        setReceivedCharacters(previewMode === "streaming" ? 186 : 0);
-        if (previewMode === "streaming") {
+        setReceivedCharacters(previewActive || previewGeneration === "stopped" ? 186 : 0);
+        if (previewActive) {
           requestStartedAtRef.current = Date.now() - 6_400;
           setInteractionId("preview-stream");
         }
@@ -378,6 +390,10 @@ export default function App() {
   useEffect(() => () => {
     revokePreparedImagePreview(image);
   }, [image]);
+  useEffect(() => () => {
+    runCoordinatorRef.current?.requestStop();
+    streamPrinterRef.current?.flush();
+  }, []);
 
   useEffect(() => {
     if (!loading) return;
@@ -446,6 +462,7 @@ export default function App() {
         });
         staged = { ...staged, originalStage: undefined };
         setActiveTaskId(taskItem.id);
+        setActiveTaskSnapshot(taskItem);
         setRequirements(taskItem.presetSnapshot?.requirements ?? "");
         setOutputLanguage(taskItem.presetSnapshot?.outputLanguage ?? "chinese");
         setDetailLevel(taskItem.presetSnapshot?.detailLevel ?? "expert");
@@ -517,6 +534,7 @@ export default function App() {
     setDisplayImageInfo(null);
     setActiveHistoryId(undefined);
     setActiveTaskId(undefined);
+    setActiveTaskSnapshot(undefined);
     setZoom(100);
     resetOutput();
     showNotice("当前图片已移除");
@@ -525,9 +543,10 @@ export default function App() {
   const handleStreamEvent = useCallback((event: ReverseStreamEvent) => {
     if (event.type === "started") {
       setInteractionId(event.interactionId);
-      if (cancelRequestedRef.current) void cancelReversePrompt(event.interactionId);
+      runCoordinatorRef.current?.registerInteraction(event.interactionId);
       return;
     }
+    if (runCoordinatorRef.current?.shouldStop()) return;
     if (event.type === "fallback") {
       setGenerationState("fallback");
       return;
@@ -554,7 +573,9 @@ export default function App() {
     return operation;
   }, []);
 
-  const handleGenerate = useCallback(async () => {
+  const runCurrentAnalysis = useCallback(async (rerunTaskId?: string) => {
+    const coordinator = runCoordinatorRef.current!;
+    if (coordinator.isActive()) return;
     if (!settings.hasApiKey) {
       setView("settings");
       return;
@@ -563,60 +584,71 @@ export default function App() {
       showNotice("请重新选择图片后再生成", "error");
       return;
     }
+    coordinator.begin();
+    coordinator.beginWorker();
+    preserveResultDuringAnalysisRef.current = Boolean(rerunTaskId);
+    setAnalysisLocked(true);
+    setCommandOpen(false);
+    setHistoryDrawerOpen(false);
+    setRerunningTaskId(rerunTaskId);
+    const previousResult = rerunTaskId ? result : null;
+    const previousIsFinal = rerunTaskId ? isFinalResult : false;
     let requestImage = image;
-    if (isDesktopApp() && requestImage.originalFile && !requestImage.originalStage) {
-      try {
-        const originalStage = await stageOriginalImage(requestImage.originalFile);
-        requestImage = { ...requestImage, originalStage, captureMetadata: originalStage.captureMetadata ?? requestImage.captureMetadata };
-        setImage(requestImage);
-        setOriginalStageError(undefined);
-      } catch (error) {
-        setOriginalStageError(getErrorMessage(error));
-      }
-    }
-    setResult(null);
-    setIsFinalResult(false);
-    setGenerationError(undefined);
-    setHistorySaveError(undefined);
-    setPendingHistoryItem(undefined);
-    setPendingOriginalCommit(undefined);
-    setGenerationState("connecting");
-    setInteractionId(undefined);
-    setElapsedMs(0);
-    setFirstTokenMs(undefined);
-    setReceivedCharacters(0);
-    receivedCharactersRef.current = 0;
-    firstTokenRecordedRef.current = false;
-    streamPrinterRef.current?.reset();
-    cancelRequestedRef.current = false;
-    requestStartedAtRef.current = Date.now();
     try {
-      if (activeTaskId) {
+      setGenerationState("connecting");
+      setInteractionId(undefined);
+      setElapsedMs(0);
+      setFirstTokenMs(undefined);
+      setReceivedCharacters(0);
+      receivedCharactersRef.current = 0;
+      firstTokenRecordedRef.current = false;
+      streamPrinterRef.current?.reset();
+      requestStartedAtRef.current = Date.now();
+      if (isDesktopApp() && !activeTaskId && requestImage.originalFile && !requestImage.originalStage) {
+        try {
+          const originalStage = await stageOriginalImage(requestImage.originalFile);
+          requestImage = { ...requestImage, originalStage, captureMetadata: originalStage.captureMetadata ?? requestImage.captureMetadata };
+          setImage(requestImage);
+          setOriginalStageError(undefined);
+        } catch (error) {
+          setOriginalStageError(getErrorMessage(error));
+        }
+      }
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "生成已停止" };
+      if (!rerunTaskId) {
+        setResult(null);
+        setIsFinalResult(false);
+      }
+      setGenerationError(undefined);
+      setHistorySaveError(undefined);
+      setPendingHistoryItem(undefined);
+      setPendingOriginalCommit(undefined);
+      if (activeTaskId && !rerunTaskId) {
         await updateProjectTaskStatus([activeTaskId], "queued");
         await updateProjectTaskStatus([activeTaskId], "preparing");
+        if (coordinator.shouldStop()) throw { code: "cancelled", message: "生成已停止" };
         await updateProjectTaskStatus([activeTaskId], "running");
       }
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "生成已停止" };
       const next = await runReversePrompt({
         imageDataUrl: requestImage.modelDataUrl,
         requirements,
         outputLanguage,
         detailLevel,
       }, handleStreamEvent);
-      if (cancelRequestedRef.current) {
-        streamPrinterRef.current?.flush();
-        setGenerationState("cancelled");
-        showNotice("已停止生成");
-        return;
-      }
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "生成已停止" };
       await streamPrinterRef.current?.finish();
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "生成已停止" };
       setResult(next);
       setIsFinalResult(true);
       setGenerationState("complete");
       setElapsedMs(next.metadata.elapsedMs);
       if (activeTaskId) {
-        await completeProjectTask(activeTaskId, next);
+        if (rerunTaskId) await updateProjectTaskResult(rerunTaskId, next);
+        else await completeProjectTask(activeTaskId, next);
+        setActiveTaskSnapshot((current) => current?.id === activeTaskId ? { ...current, status: "completed", result: next } : current);
         if (activeProjectId) await Promise.all([reloadProjectTasks(activeProjectId), reloadProjects(activeProjectId)]);
-        showNotice("任务已完成并保存到项目");
+        showNotice(rerunTaskId ? "重新分析完成，原任务已更新" : "任务已完成并保存到项目");
         return;
       }
       const item: HistoryItem = {
@@ -660,38 +692,51 @@ export default function App() {
         showNotice("反推完成");
       }
     } catch (error) {
-      if (getErrorCode(error) === "cancelled") {
+      if (coordinator.shouldStop() || getErrorCode(error) === "cancelled") {
         streamPrinterRef.current?.flush();
-        setGenerationState("cancelled");
-        if (activeTaskId) await updateProjectTaskStatus([activeTaskId], "paused").catch(() => undefined);
-        showNotice("已停止生成");
+        if (rerunTaskId) {
+          setResult(previousResult);
+          setIsFinalResult(previousIsFinal);
+        } else if (activeTaskId) {
+          await updateProjectTaskStatus([activeTaskId], "paused").catch(() => undefined);
+        }
       } else {
         streamPrinterRef.current?.flush();
         setGenerationState("idle");
         const failure = getCommandFailure(error);
         setGenerationError(failure);
-        if (activeTaskId) await failProjectTask(activeTaskId, failure.code, failure.message).catch(() => undefined);
+        if (rerunTaskId) {
+          setResult(previousResult);
+          setIsFinalResult(previousIsFinal);
+        } else if (activeTaskId) {
+          await failProjectTask(activeTaskId, failure.code, failure.message).catch(() => undefined);
+        }
         showNotice(failure.message, "error");
       }
     } finally {
+      const stopped = coordinator.shouldStop();
+      coordinator.endWorker();
+      await coordinator.waitForSettled();
+      coordinator.finish();
+      preserveResultDuringAnalysisRef.current = false;
       setInteractionId(undefined);
-      cancelRequestedRef.current = false;
+      setRerunningTaskId(undefined);
+      setAnalysisLocked(false);
+      if (stopped) {
+        setGenerationState("cancelled");
+        showNotice("已停止生成");
+        window.setTimeout(() => document.querySelector<HTMLButtonElement>('button[aria-label="设置"]:not(:disabled)')?.focus(), 0);
+      }
     }
-  }, [activeProjectId, activeTaskId, detailLevel, handleStreamEvent, image, outputLanguage, reloadProjectTasks, reloadProjects, requirements, settings.autoSaveHistory, settings.hasApiKey, showNotice, updateHistory]);
+  }, [activeProjectId, activeTaskId, detailLevel, handleStreamEvent, image, isFinalResult, outputLanguage, reloadProjectTasks, reloadProjects, requirements, result, settings.autoSaveHistory, settings.hasApiKey, showNotice, updateHistory]);
+
+  const handleGenerate = useCallback(() => runCurrentAnalysis(), [runCurrentAnalysis]);
 
   const handleStop = useCallback(async () => {
-    if (!loading) return;
-    cancelRequestedRef.current = true;
+    const coordinator = runCoordinatorRef.current!;
+    if (!analysisLocked || !coordinator.requestStop()) return;
     setGenerationState("stopping");
-    if (!interactionId) return;
-    try {
-      await cancelReversePrompt(interactionId);
-    } catch (error) {
-      cancelRequestedRef.current = false;
-      setGenerationState("streaming");
-      showNotice(getErrorMessage(error), "error");
-    }
-  }, [interactionId, loading, showNotice]);
+  }, [analysisLocked]);
 
   const loadAllProjectTasks = useCallback(async (projectId: string, filter: TaskFilter = "all") => {
     const items: ProjectTask[] = [];
@@ -704,18 +749,26 @@ export default function App() {
   }, []);
 
   const processQueueTask = useCallback(async (taskItem: ProjectTask, forceSelected = false) => {
-    await updateProjectTaskStatus([taskItem.id], "queued");
-    await updateProjectTaskStatus([taskItem.id], "preparing");
+    const coordinator = runCoordinatorRef.current!;
+    coordinator.beginWorker();
     let interaction: string | undefined;
     let prepared: PreparedImage | undefined;
     let previewTransferred = false;
     try {
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
+      await updateProjectTaskStatus([taskItem.id], "queued");
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
+      await updateProjectTaskStatus([taskItem.id], "preparing");
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       if (!taskItem.originalImage) throw { code: "original_missing", message: "原图不可用，无法继续反推" };
       const bytes = await loadWorkspaceOriginalImage(taskItem.id);
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       const file = new File([buffer], taskItem.originalImage.fileName, { type: taskItem.originalImage.mimeType });
       prepared = await prepareImage(file, taskItem.imageInfo ? { width: taskItem.imageInfo.width, height: taskItem.imageInfo.height } : undefined);
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       await updateProjectTaskStatus([taskItem.id], "running");
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       const isSelected = forceSelected || taskItem.id === activeTaskId;
       if (isSelected) {
         setImage({ ...prepared, captureMetadata: taskItem.captureMetadata });
@@ -733,93 +786,109 @@ export default function App() {
       }
       const preset = taskItem.presetSnapshot ?? { requirements: "", outputLanguage: "chinese" as const, detailLevel: "expert" as const, autoOptimizeRequirements: "" };
       let next = await runReversePrompt({ imageDataUrl: prepared.modelDataUrl, requirements: preset.requirements, outputLanguage: preset.outputLanguage, detailLevel: preset.detailLevel }, (event) => {
-        if (event.type === "started") { interaction = event.interactionId; queueInteractionIdsRef.current.add(interaction); }
+        if (event.type === "started") { interaction = event.interactionId; coordinator.registerInteraction(interaction); }
         if (isSelected) handleStreamEvent(event);
       });
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       if (isSelected) await streamPrinterRef.current?.finish();
-      if (interaction) queueInteractionIdsRef.current.delete(interaction);
+      coordinator.unregisterInteraction(interaction);
+      interaction = undefined;
       if (preset.autoOptimizeTarget) {
+        if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
         const optimized = await runPromptOptimization({ analysis: next.analysis, sourcePrompts: next.prompts, target: preset.autoOptimizeTarget, requirements: preset.autoOptimizeRequirements, aspectRatio: taskItem.imageInfo ? simplifyAspectRatio(taskItem.imageInfo.width, taskItem.imageInfo.height) : undefined }, (event) => {
-          if (event.type === "started") { interaction = event.interactionId; queueInteractionIdsRef.current.add(interaction); }
+          if (event.type === "started") { interaction = event.interactionId; coordinator.registerInteraction(interaction); }
         });
-        if (interaction) queueInteractionIdsRef.current.delete(interaction);
+        if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
+        coordinator.unregisterInteraction(interaction);
+        interaction = undefined;
         const versionId = crypto.randomUUID();
         next = { ...next, promptVersions: [...(next.promptVersions ?? []), { id: versionId, target: preset.autoOptimizeTarget, origin: "optimization", requirements: preset.autoOptimizeRequirements, prompts: optimized.prompts, negativePrompts: optimized.negativePrompts, metadata: optimized.metadata }], activePromptVersionId: versionId };
       }
+      if (coordinator.shouldStop()) throw { code: "cancelled", message: "队列已停止" };
       await completeProjectTask(taskItem.id, next);
-      if (isSelected) { setResult(next); setIsFinalResult(true); setGenerationState("complete"); setElapsedMs(next.metadata.elapsedMs); }
+      if (isSelected) {
+        setResult(next);
+        setIsFinalResult(true);
+        setGenerationState("complete");
+        setElapsedMs(next.metadata.elapsedMs);
+        setActiveTaskSnapshot((current) => current?.id === taskItem.id ? { ...current, status: "completed", result: next } : current);
+      }
     } catch (error) {
-      if (interaction) queueInteractionIdsRef.current.delete(interaction);
+      coordinator.unregisterInteraction(interaction);
       const failure = getCommandFailure(error);
-      if (queueStopRef.current || failure.code === "cancelled") await updateProjectTaskStatus([taskItem.id], "paused");
+      if (coordinator.shouldStop() || failure.code === "cancelled") await updateProjectTaskStatus([taskItem.id], "paused");
       else await failProjectTask(taskItem.id, failure.code, failure.message);
       if (taskItem.id === activeTaskId) {
         streamPrinterRef.current?.flush();
-        setGenerationState(failure.code === "cancelled" ? "cancelled" : "idle");
-        setGenerationError(failure);
+        if (!coordinator.shouldStop() && failure.code !== "cancelled") {
+          setGenerationState("idle");
+          setGenerationError(failure);
+        }
       }
     } finally {
       if (!previewTransferred) revokePreparedImagePreview(prepared);
+      coordinator.endWorker();
     }
   }, [activeTaskId, handleStreamEvent]);
 
   const handleRegenerate = useCallback(async () => {
-    const current = projectTasks.find((task) => task.id === activeTaskId);
-    if (!current || current.status !== "completed") { await handleGenerate(); return; }
-    try {
-      const duplicate = await duplicateProjectTask(current.id);
-      setActiveTaskId(duplicate.id);
-      await processQueueTask(duplicate, true);
-      if (activeProjectId) await Promise.all([reloadProjectTasks(activeProjectId), reloadProjects(activeProjectId)]);
-      const completed = await getProjectTask(duplicate.id);
-      await selectProjectTask(completed);
-    } catch (error) { showNotice(getErrorMessage(error), "error"); }
-  }, [activeProjectId, activeTaskId, handleGenerate, processQueueTask, projectTasks, reloadProjectTasks, reloadProjects, showNotice]);
+    if (resultOperationBusy) return;
+    await runCurrentAnalysis(activeTaskId && activeTaskSnapshot?.id === activeTaskId && activeTaskSnapshot.status === "completed" ? activeTaskId : undefined);
+  }, [activeTaskId, activeTaskSnapshot, resultOperationBusy, runCurrentAnalysis]);
 
   const startQueue = useCallback(async () => {
-    if (!activeProjectId || queueRunning) return;
+    const coordinator = runCoordinatorRef.current!;
+    if (!activeProjectId || queueRunning || coordinator.isActive()) return;
     if (!settings.hasApiKey) { setView("settings"); return; }
     const all = await loadAllProjectTasks(activeProjectId);
     const pending = all.filter((task) => ["ready", "queued", "paused"].includes(task.status));
     if (!pending.length) { showNotice("当前项目没有待处理任务", "error"); return; }
-    queuePausedRef.current = false;
-    queueStopRef.current = false;
-    setQueuePaused(false);
+    coordinator.begin();
+    setAnalysisLocked(true);
+    setCommandOpen(false);
+    setHistoryDrawerOpen(false);
     setQueueRunning(true);
-    await updateProjectTaskStatus(pending.map((task) => task.id), "queued");
-    const started = await runTaskQueue(pending, settings.batchConcurrency, () => !queuePausedRef.current && !queueStopRef.current, async (task) => {
+    setGenerationState("connecting");
+    try {
+      await updateProjectTaskStatus(pending.map((task) => task.id), "queued");
+      const started = await runTaskQueue(pending, settings.batchConcurrency, () => !coordinator.shouldStop(), async (task) => {
         await processQueueTask(task);
         if (activeProjectId) {
           const progress = await getBatchProgress(activeProjectId);
           setBatchProgress(progress);
         }
-    });
-    const remaining = pending.slice(started).map((task) => task.id);
-    if (remaining.length) await updateProjectTaskStatus(remaining, "paused");
-    setQueueRunning(false);
-    setQueuePaused(queuePausedRef.current && !queueStopRef.current);
-    await Promise.all([reloadProjectTasks(activeProjectId), reloadProjects(activeProjectId)]);
-  }, [activeProjectId, loadAllProjectTasks, processQueueTask, queueRunning, reloadProjectTasks, reloadProjects, settings.batchConcurrency, settings.hasApiKey, showNotice]);
-
-  const pauseQueue = useCallback(() => {
-    queuePausedRef.current = true;
-    setQueuePaused(true);
-    showNotice("队列将在当前任务完成后暂停");
-  }, [showNotice]);
-
-  const stopQueue = useCallback(async () => {
-    queueStopRef.current = true;
-    queuePausedRef.current = false;
-    await Promise.all(Array.from(queueInteractionIdsRef.current).map((id) => cancelReversePrompt(id).catch(() => false)));
-    if (activeProjectId) {
-      const all = await loadAllProjectTasks(activeProjectId);
-      const activeIds = all.filter((task) => ["queued", "preparing", "running"].includes(task.status)).map((task) => task.id);
-      if (activeIds.length) await updateProjectTaskStatus(activeIds, "paused");
-      await reloadProjectTasks(activeProjectId);
+      });
+      await coordinator.waitForSettled();
+      const remaining = pending.slice(started).map((task) => task.id);
+      if (remaining.length) await updateProjectTaskStatus(remaining, "paused");
+      if (coordinator.shouldStop()) {
+        const latest = await loadAllProjectTasks(activeProjectId);
+        const unfinished = latest.filter((task) => ["queued", "preparing", "running"].includes(task.status)).map((task) => task.id);
+        if (unfinished.length) await updateProjectTaskStatus(unfinished, "paused");
+        setGenerationState("cancelled");
+        showNotice("队列已停止");
+      } else {
+        setGenerationState("complete");
+        showNotice("队列处理完成");
+      }
+      await Promise.all([reloadProjectTasks(activeProjectId), reloadProjects(activeProjectId)]);
+    } catch (error) {
+      const failure = getCommandFailure(error);
+      setGenerationState("idle");
+      setGenerationError(failure);
+      showNotice(failure.message, "error");
+    } finally {
+      const stopped = coordinator.shouldStop();
+      await coordinator.waitForSettled();
+      coordinator.finish();
+      setQueueRunning(false);
+      setAnalysisLocked(false);
+      setInteractionId(undefined);
+      if (stopped) {
+        window.setTimeout(() => document.querySelector<HTMLButtonElement>('button[aria-label="设置"]:not(:disabled)')?.focus(), 0);
+      }
     }
-    setQueueRunning(false);
-    setQueuePaused(false);
-  }, [activeProjectId, loadAllProjectTasks, reloadProjectTasks]);
+  }, [activeProjectId, loadAllProjectTasks, processQueueTask, queueRunning, reloadProjectTasks, reloadProjects, settings.batchConcurrency, settings.hasApiKey, showNotice]);
 
   const retryFailedQueue = useCallback(async () => {
     if (!activeProjectId) return;
@@ -882,6 +951,7 @@ export default function App() {
     }
     setSettings((current) => ({ ...current, lastProjectId: latest.projectId, lastTaskId: latest.id }));
     setActiveTaskId(latest.id);
+    setActiveTaskSnapshot(latest);
     setActiveHistoryId(undefined);
     setResult(latest.result ?? null);
     setIsFinalResult(Boolean(latest.result));
@@ -1126,6 +1196,7 @@ export default function App() {
     setSettings((current) => ({ ...current, lastProjectId: projectId, lastTaskId: undefined }));
     setActiveProjectId(projectId);
     setActiveTaskId(undefined);
+    setActiveTaskSnapshot(undefined);
     setSelectedTaskIds([]);
     setResult(null);
     setImage(null);
@@ -1185,7 +1256,7 @@ export default function App() {
   }, [activeProjectId, reloadProjectTasks, showNotice]);
 
   const handleDeleteTasks = useCallback(async (ids: string[]) => {
-    await deleteProjectTasks(ids); setSelectedTaskIds([]); if (ids.includes(activeTaskId ?? "")) setActiveTaskId(undefined); if (activeProjectId) await reloadProjectTasks(activeProjectId); await reloadTrash(); showNotice("任务已移入废纸篓");
+    await deleteProjectTasks(ids); setSelectedTaskIds([]); if (ids.includes(activeTaskId ?? "")) { setActiveTaskId(undefined); setActiveTaskSnapshot(undefined); } if (activeProjectId) await reloadProjectTasks(activeProjectId); await reloadTrash(); showNotice("任务已移入废纸篓");
   }, [activeProjectId, activeTaskId, reloadProjectTasks, reloadTrash, showNotice]);
 
   const handleBatchExport = useCallback((ids: string[]) => {
@@ -1213,13 +1284,14 @@ export default function App() {
 
   useEffect(() => {
     const handleCommandKey = (event: KeyboardEvent) => {
+      if (analysisLocked) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setCommandOpen(true); }
     };
     window.addEventListener("keydown", handleCommandKey);
     return () => window.removeEventListener("keydown", handleCommandKey);
-  }, []);
+  }, [analysisLocked]);
 
-  useWorkspaceShortcuts({ view, loading, onGenerate: handleRegenerate, onStop: handleStop });
+  useWorkspaceShortcuts({ view, loading: analysisLocked, blocked: resultOperationBusy, onGenerate: handleRegenerate, onStop: handleStop });
   useClipboardImage({
     view,
     loading,
@@ -1243,7 +1315,8 @@ export default function App() {
       activePresetId={activePresetId}
       progress={batchProgress}
       queueRunning={queueRunning}
-      queuePaused={queuePaused}
+      analysisLocked={analysisLocked}
+      rerunningTaskId={rerunningTaskId}
       importing={batchImporting}
       importLabel={batchImportLabel}
       trash={trash}
@@ -1271,8 +1344,6 @@ export default function App() {
       onReorder={(ids) => void reorderProjectTasks(ids).then(() => activeProjectId ? reloadProjectTasks(activeProjectId) : undefined)}
       onMove={(ids, projectId) => void moveProjectTasks(ids, projectId).then(() => activeProjectId ? Promise.all([reloadProjectTasks(activeProjectId), reloadProjects(activeProjectId)]) : undefined)}
       onStartQueue={() => void startQueue()}
-      onPauseQueue={pauseQueue}
-      onStopQueue={() => void stopQueue()}
       onRetryFailed={() => void retryFailedQueue()}
       onLoadMore={() => activeProjectId && void reloadProjectTasks(activeProjectId, false)}
       onExport={handleBatchExport}
@@ -1295,7 +1366,9 @@ export default function App() {
       onClear={clearHistory}
     />
   );
-  const sidebar = workspaceUi ? projectSidebar : legacySidebar;
+  const sidebar = workspaceUi ? projectSidebar : (
+    <div className="legacy-sidebar-lock" inert={analysisLocked ? true : undefined}>{legacySidebar}</div>
+  );
 
   return (
     <div className="app-shell">
@@ -1305,15 +1378,17 @@ export default function App() {
         compactHistory={compactHistory}
         view={view}
         generationState={generationState}
+        disabled={analysisLocked}
         elapsedMs={elapsedMs}
         projectTitle={projects.find((item) => item.id === activeProjectId)?.title}
-        taskTitle={projectTasks.find((item) => item.id === activeTaskId)?.title}
+        taskTitle={activeTaskId && activeTaskSnapshot?.id === activeTaskId ? activeTaskSnapshot.title : projectTasks.find((item) => item.id === activeTaskId)?.title}
         onToggleSidebar={() => compactHistory ? setHistoryDrawerOpen(true) : setSidebarCollapsed((value) => !value)}
         onNavigate={navigate}
+        onStop={() => void handleStop()}
       />
 
       {settingsLoadError || historyLoadError || historySaveError || originalStageError || originalLoadFailure ? (
-        <div className="notice-stack" role="region" aria-label="应用通知">
+        <div className="notice-stack" role="region" aria-label="应用通知" inert={analysisLocked ? true : undefined}>
           {settingsLoadError ? (
             <Alert
               type="error"
@@ -1397,8 +1472,11 @@ export default function App() {
           inputSplitPercent={settings.workspace.inputSplitPercent}
           onSidebarWidthChange={(value) => updateWorkspacePreferences({ projectSidebarWidth: value })}
           onInputSplitChange={(value) => updateWorkspacePreferences({ inputSplitPercent: value })}
+          locked={analysisLocked}
           overview={workspaceUi && !activeTaskId && !displayImage ? (
-            <ProjectOverview project={projects.find((item) => item.id === activeProjectId)} tasks={projectTasks} progress={batchProgress} onImport={() => document.querySelector<HTMLInputElement>('.project-import input')?.click()} onImportFiles={handleBatchImport} onStart={() => void startQueue()} onSelect={(task) => void selectProjectTask(task)} />
+            <div className="project-overview-lock" inert={analysisLocked ? true : undefined}>
+              <ProjectOverview project={projects.find((item) => item.id === activeProjectId)} tasks={projectTasks} progress={batchProgress} onImport={() => document.querySelector<HTMLInputElement>('.project-import input')?.click()} onImportFiles={handleBatchImport} onStart={() => void startQueue()} onSelect={(task) => void selectProjectTask(task)} />
+            </div>
           ) : undefined}
           input={workspaceUi && !activeTaskId && !displayImage ? undefined : (
             <ImageWorkbench
@@ -1428,7 +1506,7 @@ export default function App() {
               onZoomChange={setZoom}
               onFitModeChange={(value: FitMode) => { setFitMode(value); updateWorkspacePreferences({ fitMode: value }); }}
               onGenerate={handleRegenerate}
-              onStop={handleStop}
+              generateLabel={activeTaskId && activeTaskSnapshot?.id === activeTaskId && activeTaskSnapshot.status === "completed" ? "重新分析" : "开始反推"}
               onConfigure={() => navigate("settings")}
               originalStatus={originalLoading ? "loading" : originalLoadFailure ? "error"
                 : activeTaskId && projectTasks.find((item) => item.id === activeTaskId)?.originalImage ? "retained"
@@ -1446,6 +1524,7 @@ export default function App() {
               result={result}
               error={generationError}
               generationState={generationState}
+              analysisLocked={analysisLocked}
               isFinal={isFinalResult}
               canRegenerate={Boolean(image?.modelDataUrl)}
               aspectRatio={displayImageInfo ? simplifyAspectRatio(displayImageInfo.width, displayImageInfo.height) : undefined}
@@ -1468,6 +1547,7 @@ export default function App() {
               initialSplitPercent={settings.workspace.resultSplitPercent}
               onSplitChange={(value) => updateWorkspacePreferences({ resultSplitPercent: value })}
               previewInteraction={previewInteraction}
+              onBusyChange={handleResultBusyChange}
             />
           )}
         />
@@ -1493,11 +1573,10 @@ export default function App() {
           {batchProgress.total ? <span className="queue-status">队列：<strong>{batchProgress.completed}/{batchProgress.total}</strong></span> : null}
         </footer>
       ) : null}
-      <Modal title="快捷命令" visible={commandOpen} footer={null} onCancel={() => setCommandOpen(false)} className="command-palette" unmountOnExit>
+      <Modal title="快捷命令" visible={commandOpen && !analysisLocked} footer={null} onCancel={() => setCommandOpen(false)} className="command-palette" unmountOnExit>
         <div className="command-list">
           <Button long type="text" onClick={() => { setCommandOpen(false); document.querySelector<HTMLInputElement>('.project-import input')?.click(); }}>导入图片 <kbd>⌘I</kbd></Button>
           <Button long type="text" onClick={() => { setCommandOpen(false); void startQueue(); }}>开始或继续队列</Button>
-          <Button long type="text" onClick={() => { setCommandOpen(false); pauseQueue(); }}>暂停队列</Button>
           {projects.map((project) => <Button key={project.id} long type="text" onClick={() => { handleProjectChange(project.id); setCommandOpen(false); }}>切换到“{project.title}”</Button>)}
           <Button long type="text" onClick={() => { setCommandOpen(false); navigate("settings"); }}>打开设置</Button>
           <Button long type="text" onClick={() => { setCommandOpen(false); navigate("logs"); }}>打开运行日志</Button>

@@ -82,4 +82,22 @@ describe("ResultsWorkspace", () => {
     expect(column.style.getPropertyValue("--analysis-height")).toBe(initialHeight);
     expect(column).toHaveClass("is-auto");
   });
+
+  it("locks result controls and the divider during analysis", () => {
+    const onSplitChange = vi.fn();
+    const { container } = render(<ResultsWorkspace {...props} analysisLocked generationState="streaming" isFinal={false} onSplitChange={onSplitChange} />);
+    const column = container.querySelector<HTMLElement>(".result-column")!;
+    Object.defineProperty(column, "clientHeight", { configurable: true, value: 700 });
+    const divider = screen.getByRole("separator", { name: "调整摄影测定和提示词区域高度" });
+
+    expect(divider).toHaveAttribute("tabindex", "-1");
+    expect(divider).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("radio", { name: "全部" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "摄影测定更多操作" })).toBeDisabled();
+    fireEvent.keyDown(divider, { key: "ArrowDown" });
+    fireEvent.doubleClick(divider);
+
+    expect(column).toHaveClass("is-auto");
+    expect(onSplitChange).not.toHaveBeenCalled();
+  });
 });

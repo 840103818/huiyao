@@ -32,7 +32,7 @@
 
 `TaskStatus` 固定为 `ready / queued / preparing / running / completed / failed / paused / cancelled / blocked`。列表请求使用 `offset/limit`，后端把 `limit` 限制为 50。
 
-`complete_project_task` 只允许运行中的任务进入完成态；已完成任务保存统一结果修订时使用 `update_project_task_result`，该命令不改变任务状态。两条写入路径都执行 2 MiB 结果容量和 12 个派生修订限制。
+`complete_project_task` 只允许运行中的任务进入完成态；已完成任务保存统一结果修订或原任务重新分析成功时使用 `update_project_task_result`，该命令不改变任务状态。重新分析失败、停止或断流时前端不得调用该命令。两条写入路径都执行 2 MiB 结果容量和 12 个派生修订限制。
 
 `AnalysisRefinementRequest` 包含最长边 2048px 的 `imageDataUrl`、当前摄影测定、`lockedFields` 和最多 500 字要求。`AnalysisRefinementOutput` 只返回严格解析后的摄影测定和元数据；Rust 在返回前再次恢复锁定字段。
 
@@ -44,7 +44,7 @@
 - `delta`：包含模型返回的真实文本增量。
 - `fallback`：服务不兼容首选流式方式，正在使用兼容路径。
 
-命令 Promise 返回最终严格解析结果。主动停止保留前端已接收部分内容，但不自动写入历史。
+命令 Promise 返回最终严格解析结果。`cancel_reverse_prompt` 继续按 `interactionId` 幂等取消，不增加“暂停传输”或“取消全部”命令；前端停止协调器负责锁存停止意图，并在迟到 `started` 到达时立即调用现有命令。主动停止保留前端已接收部分内容，但不写入历史、完成任务或正式修订。
 
 ## 原图 Raw IPC
 

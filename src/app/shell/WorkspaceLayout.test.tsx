@@ -73,4 +73,23 @@ describe("WorkspaceLayout", () => {
     expect(screen.getByText("项目概览")).toBeInTheDocument();
     expect(screen.queryByRole("separator", { name: "调整视觉输入和结果区域宽度" })).not.toBeInTheDocument();
   });
+
+  it("ignores pointer, keyboard, and double-click changes while locked", () => {
+    const onSidebarWidthChange = vi.fn();
+    const onInputSplitChange = vi.fn();
+    renderLayout({ locked: true, sidebarWidth: 320, inputSplitPercent: 60, onSidebarWidthChange, onInputSplitChange });
+
+    const sidebarSeparator = screen.getByRole("separator", { name: "调整项目任务栏宽度" });
+    const contentSeparator = screen.getByRole("separator", { name: "调整视觉输入和结果区域宽度" });
+    expect(sidebarSeparator).toHaveAttribute("tabindex", "-1");
+    expect(contentSeparator).toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(sidebarSeparator, { key: "Home" });
+    fireEvent.doubleClick(contentSeparator);
+    fireEvent.pointerDown(contentSeparator, { button: 0, pointerId: 1, clientX: 520 });
+    fireEvent.pointerMove(contentSeparator, { pointerId: 1, clientX: 600 });
+    fireEvent.pointerUp(contentSeparator, { pointerId: 1, clientX: 600 });
+
+    expect(onSidebarWidthChange).not.toHaveBeenCalled();
+    expect(onInputSplitChange).not.toHaveBeenCalled();
+  });
 });

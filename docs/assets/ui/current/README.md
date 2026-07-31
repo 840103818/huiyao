@@ -15,6 +15,10 @@
 - `project-drawer-dark-1120x720.png`：窄屏项目任务 Drawer。
 - `preset-editor-detail-menu-light-1440x900.png`：自定义预设的详细程度下拉菜单位于 Modal 之上。
 - `preset-editor-controls-light-1440x900.png`：详细程度与自动优化选择后的预设编辑状态。
+- `preset-editor-controls-dark-1120x720.png`：窄屏深色项目 Drawer 内的预设编辑、自动优化和附加要求状态。
+- `generation-locked-light-1440x900.png`、`generation-locked-dark-1120x720.png`：分析期间顶部工具栏保留唯一停止命令，其他工作台操作进入禁用状态。
+- `generation-stopping-light-1440x900.png`、`generation-stopping-dark-1120x720.png`：停止收尾期间保持操作互斥和真实“正在停止”反馈。
+- `generation-stopped-light-1440x900.png`、`generation-stopped-dark-1120x720.png`：停止完成后恢复工作台操作，部分结果继续可读。
 - `selected-task-light-1440x900.png`：完整摄影测定与提示词结果工作台。
 - `settings-dark-1120x720.png`：当前分类高亮、连续表单与固定保存区。
 - `logs-light-1440x900.png`：筛选/操作分组工具栏、Console 风格日志页与空状态。

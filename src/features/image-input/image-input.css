@@ -34,6 +34,8 @@
 .input-actionbar .arco-upload { display: block; }
 .input-actionbar .arco-btn { height: 34px; }
 .input-actionbar .generate-action { justify-self: stretch; }
+.analysis-action-status { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); color: var(--muted); font-size: 12px; }
+.analysis-action-status span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .72; }
 .input-parameters-drawer { z-index: 20 !important; border-left: 1px solid var(--border); box-shadow: -16px 0 40px rgba(10, 10, 12, .18); }
 .input-parameters-drawer .arco-drawer-header { height: 46px; }
 .input-parameters-drawer .arco-drawer-body { padding: 0; }

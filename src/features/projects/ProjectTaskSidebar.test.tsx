@@ -18,7 +18,7 @@ function renderSidebar(overrides: Record<string, unknown> = {}) {
     activeProjectId: "project-1", tasks: [task], total: 1, activeTaskId: undefined, selectedTaskIds: [], query: "", filter: "all" as const,
     presets: [{ id: "preset-standard", title: "标准反推", builtIn: true, snapshot: { requirements: "", outputLanguage: "chinese" as const, detailLevel: "expert" as const, autoOptimizeRequirements: "" }, createdAt: "", updatedAt: "" }],
     activePresetId: "preset-standard", progress: { total: 1, ready: 1, queued: 0, running: 0, completed: 0, failed: 0, paused: 0 },
-    queueRunning: false, queuePaused: false, importing: false, trash: [], onProjectChange: vi.fn(), onCreateProject: vi.fn(), onRenameProject: vi.fn(), onDeleteProject: vi.fn(), onQueryChange: vi.fn(), onFilterChange: vi.fn(), onPresetChange: vi.fn(), onSavePreset: vi.fn(), onDeletePreset: vi.fn(), onImport: vi.fn(), onCancelImport: vi.fn(), onSelectTask: vi.fn(), onSelectionChange: vi.fn(), onFavorite: vi.fn(), onTags: vi.fn(), onRenameTask: vi.fn(), onRetryTask: vi.fn(), onBatchFavorite: vi.fn(), onBatchTags: vi.fn(), onDuplicate: vi.fn(), onDeleteTasks: vi.fn(), onReorder: vi.fn(), onMove: vi.fn(), onStartQueue: vi.fn(), onPauseQueue: vi.fn(), onStopQueue: vi.fn(), onRetryFailed: vi.fn(), onLoadMore: vi.fn(), onExport: vi.fn(), onRestoreTrash: vi.fn(), onDeleteTrash: vi.fn(), onEmptyTrash: vi.fn(),
+    queueRunning: false, importing: false, trash: [], onProjectChange: vi.fn(), onCreateProject: vi.fn(), onRenameProject: vi.fn(), onDeleteProject: vi.fn(), onQueryChange: vi.fn(), onFilterChange: vi.fn(), onPresetChange: vi.fn(), onSavePreset: vi.fn(), onDeletePreset: vi.fn(), onImport: vi.fn(), onCancelImport: vi.fn(), onSelectTask: vi.fn(), onSelectionChange: vi.fn(), onFavorite: vi.fn(), onTags: vi.fn(), onRenameTask: vi.fn(), onRetryTask: vi.fn(), onBatchFavorite: vi.fn(), onBatchTags: vi.fn(), onDuplicate: vi.fn(), onDeleteTasks: vi.fn(), onReorder: vi.fn(), onMove: vi.fn(), onStartQueue: vi.fn(), onRetryFailed: vi.fn(), onLoadMore: vi.fn(), onExport: vi.fn(), onRestoreTrash: vi.fn(), onDeleteTrash: vi.fn(), onEmptyTrash: vi.fn(),
     ...overrides,
   };
   render(<ProjectTaskSidebar {...props} />);
@@ -71,6 +71,13 @@ describe("ProjectTaskSidebar", () => {
     expect(props.onRetryTask).toHaveBeenCalledWith(failed);
   });
 
+  it("creates a related copy only from the explicit copy action", async () => {
+    const props = renderSidebar({ tasks: [{ ...task, status: "completed" as const }] });
+    fireEvent.click(screen.getByRole("button", { name: "棚拍产品 操作" }));
+    fireEvent.click(await screen.findByText("创建关联副本"));
+    expect(props.onDuplicate).toHaveBeenCalledWith(expect.objectContaining({ id: task.id }));
+  });
+
   it("keeps batch favorite and tag actions contextual to the current selection", async () => {
     const props = renderSidebar({ selectedTaskIds: [task.id] });
     fireEvent.click(screen.getByRole("button", { name: "批量整理" }));
@@ -90,23 +97,42 @@ describe("ProjectTaskSidebar", () => {
     expect(screen.getByText("复制为自定义预设")).toBeInTheDocument();
 
     const detailSelect = screen.getByRole("combobox", { name: "详细程度" });
+    expect(detailSelect.closest("label")).toBeNull();
     fireEvent.click(detailSelect);
     const detailPopup = Array.from(document.querySelectorAll<HTMLElement>(".arco-trigger"))
       .find((element) => element.textContent?.includes("精简"));
     expect(detailPopup).toBeDefined();
-    expect(Number(getComputedStyle(detailPopup!).zIndex)).toBeGreaterThan(1050);
     fireEvent.click(await screen.findByText("详细"));
     expect(detailSelect).toHaveTextContent("详细");
 
-    fireEvent.click(screen.getByRole("combobox", { name: "自动优化" }));
+    const optimizationSelect = screen.getByRole("combobox", { name: "自动优化" });
+    expect(optimizationSelect.closest("label")).toBeNull();
+    fireEvent.click(optimizationSelect);
     fireEvent.click(await screen.findByText("Flux"));
-    expect(screen.getByPlaceholderText("自动优化附加要求")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("自动优化附加要求"), { target: { value: "保留自然材质" } });
 
     fireEvent.click(screen.getByRole("button", { name: "确定" }));
     await waitFor(() => expect(props.onSavePreset).toHaveBeenCalledWith(
       "标准反推 副本",
-      expect.objectContaining({ detailLevel: "detailed", autoOptimizeTarget: "flux" }),
+      expect.objectContaining({ detailLevel: "detailed", autoOptimizeTarget: "flux", autoOptimizeRequirements: "保留自然材质" }),
       undefined,
     ));
+  });
+
+  it("traps preset editing focus and restores it to the trigger after closing", async () => {
+    renderSidebar();
+    const trigger = screen.getByRole("button", { name: "编辑预设" });
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "复制为自定义预设" });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("makes the sidebar read-only while analysis is locked", () => {
+    renderSidebar({ analysisLocked: true, queueRunning: true });
+    expect(document.querySelector(".project-sidebar-content")).toHaveAttribute("inert");
+    expect(screen.queryByRole("button", { name: "停止生成" })).not.toBeInTheDocument();
   });
 });

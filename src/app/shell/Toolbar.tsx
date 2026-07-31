@@ -1,5 +1,5 @@
 import { Button, Tooltip } from "@arco-design/web-react";
-import { IconList, IconMenuFold, IconMenuUnfold, IconSettings } from "@arco-design/web-react/icon";
+import { IconList, IconMenuFold, IconMenuUnfold, IconSettings, IconStop } from "@arco-design/web-react/icon";
 import type { GenerationState } from "../../shared/contracts";
 import { isDesktopApp } from "../../infrastructure/tauri";
 import brandMark from "../../assets/huiyao-mark.png";
@@ -13,10 +13,12 @@ interface ToolbarProps {
   view: AppView;
   generationState: GenerationState;
   elapsedMs: number;
+  disabled?: boolean;
   projectTitle?: string;
   taskTitle?: string;
   onToggleSidebar: () => void;
   onNavigate: (view: AppView) => void;
+  onStop?: () => void;
 }
 
 export function Toolbar({
@@ -25,10 +27,12 @@ export function Toolbar({
   view,
   generationState,
   elapsedMs,
+  disabled,
   projectTitle,
   taskTitle,
   onToggleSidebar,
   onNavigate,
+  onStop,
 }: ToolbarProps) {
   const workspaceOpen = view === "workspace";
   const historyLabel = compactHistory ? "打开历史记录" : sidebarCollapsed ? "展开历史记录" : "收起历史记录";
@@ -40,11 +44,11 @@ export function Toolbar({
           <div className="traffic-lights" aria-hidden="true"><i /><i /><i /></div>
         ) : null}
         {workspaceOpen ? (
-          <ToolbarButton label={historyLabel} onClick={onToggleSidebar}>
+          <ToolbarButton label={historyLabel} disabled={disabled} onClick={onToggleSidebar}>
             {compactHistory || sidebarCollapsed ? <IconMenuUnfold /> : <IconMenuFold />}
           </ToolbarButton>
         ) : (
-          <ToolbarButton label="返回工作台" onClick={() => onNavigate("workspace")}>
+          <ToolbarButton label="返回工作台" disabled={disabled} onClick={() => onNavigate("workspace")}>
             <IconMenuUnfold />
           </ToolbarButton>
         )}
@@ -72,10 +76,15 @@ export function Toolbar({
       )}
 
       <div className="toolbar-actions">
-        <ToolbarButton label="运行日志" selected={view === "logs"} onClick={() => onNavigate("logs")}>
+        {disabled && onStop ? (
+          <Button className="toolbar-stop" size="small" status="danger" icon={<IconStop />} loading={generationState === "stopping"} onClick={onStop}>
+            {generationState === "stopping" ? "正在停止" : "停止生成"}
+          </Button>
+        ) : null}
+        <ToolbarButton label="运行日志" selected={view === "logs"} disabled={disabled} onClick={() => onNavigate("logs")}>
           <IconList />
         </ToolbarButton>
-        <ToolbarButton label="设置" selected={view === "settings"} onClick={() => onNavigate("settings")}>
+        <ToolbarButton label="设置" selected={view === "settings"} disabled={disabled} onClick={() => onNavigate("settings")}>
           <IconSettings />
         </ToolbarButton>
       </div>
@@ -87,10 +96,10 @@ function isActiveState(state: GenerationState): boolean {
   return ["connecting", "streaming", "fallback", "stopping"].includes(state);
 }
 
-function ToolbarButton({ label, selected, onClick, children }: { label: string; selected?: boolean; onClick: () => void; children: React.ReactNode }) {
+function ToolbarButton({ label, selected, disabled, onClick, children }: { label: string; selected?: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <Tooltip content={label} position="bottom">
-      <Button className={selected ? "selected" : undefined} type="text" shape="circle" icon={children} onClick={onClick} aria-label={label} />
+      <Button className={selected ? "selected" : undefined} type="text" shape="circle" icon={children} disabled={disabled} onClick={onClick} aria-label={label} />
     </Tooltip>
   );
 }

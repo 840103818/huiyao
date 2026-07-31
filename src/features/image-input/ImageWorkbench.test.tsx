@@ -47,7 +47,6 @@ function renderWorkbench(onZoomChange = vi.fn()) {
       onZoomChange={onZoomChange}
       onFitModeChange={vi.fn()}
       onGenerate={vi.fn()}
-      onStop={vi.fn()}
       generationState="idle"
     />,
   );
@@ -93,7 +92,7 @@ describe("ImageWorkbench", () => {
         outputLanguage="chinese" detailLevel="expert" zoom={150} fitMode="contain"
         loading={false} generationState="idle" onImageFile={vi.fn()}
         onRequirementsChange={vi.fn()} onOutputLanguageChange={vi.fn()} onDetailLevelChange={vi.fn()}
-        onZoomChange={onZoomChange} onFitModeChange={onFitModeChange} onGenerate={vi.fn()} onStop={vi.fn()}
+        onZoomChange={onZoomChange} onFitModeChange={onFitModeChange} onGenerate={vi.fn()}
       />,
     );
     const stage = container.querySelector<HTMLElement>(".image-stage")!;
@@ -118,7 +117,7 @@ describe("ImageWorkbench", () => {
         outputLanguage="chinese" detailLevel="expert" zoom={200} fitMode="contain"
         loading={false} generationState="idle" onImageFile={vi.fn()}
         onRequirementsChange={vi.fn()} onOutputLanguageChange={vi.fn()} onDetailLevelChange={vi.fn()}
-        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()} onStop={vi.fn()}
+        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()}
       />,
     );
     const stage = container.querySelector<HTMLElement>(".image-stage")!;
@@ -139,7 +138,7 @@ describe("ImageWorkbench", () => {
         outputLanguage="chinese" detailLevel="expert" zoom={100} fitMode="contain"
         loading={false} generationState="idle" onImageFile={vi.fn()}
         onRequirementsChange={vi.fn()} onOutputLanguageChange={vi.fn()} onDetailLevelChange={vi.fn()}
-        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()} onStop={vi.fn()}
+        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()}
       />,
     );
     fireEvent.doubleClick(screen.getByTitle("双击放大查看"));
@@ -175,7 +174,6 @@ describe("ImageWorkbench", () => {
         onZoomChange={vi.fn()}
         onFitModeChange={vi.fn()}
         onGenerate={vi.fn()}
-        onStop={vi.fn()}
       />,
     );
 
@@ -203,7 +201,7 @@ describe("ImageWorkbench", () => {
         outputLanguage="chinese" detailLevel="expert" zoom={100} fitMode="contain"
         loading={false} generationState="idle" onImageFile={onImageFile}
         onRequirementsChange={vi.fn()} onOutputLanguageChange={vi.fn()} onDetailLevelChange={vi.fn()}
-        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()} onStop={vi.fn()}
+        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()}
       />,
     );
     const stage = screen.getByTitle("双击放大查看");
@@ -223,7 +221,7 @@ describe("ImageWorkbench", () => {
         outputLanguage="chinese" detailLevel="expert" zoom={100} fitMode="contain"
         loading generationState="streaming" onImageFile={onImageFile}
         onRequirementsChange={vi.fn()} onOutputLanguageChange={vi.fn()} onDetailLevelChange={vi.fn()}
-        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()} onStop={vi.fn()}
+        onZoomChange={vi.fn()} onFitModeChange={vi.fn()} onGenerate={vi.fn()}
       />,
     );
     const stage = container.querySelector<HTMLElement>(".image-stage")!;
@@ -231,6 +229,10 @@ describe("ImageWorkbench", () => {
     const dataTransfer = { types: ["Files"], files: { item: () => file, length: 1, 0: file }, dropEffect: "copy" };
     fireEvent.dragEnter(stage, { dataTransfer });
     expect(screen.getByText("当前无法替换图片")).toBeInTheDocument();
+    expect(screen.getByText("分析进行中", { selector: ".analysis-action-status" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "停止生成" })).not.toBeInTheDocument();
+    expect(stage).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("toolbar", { name: "图片画布工具" })).toHaveAttribute("inert");
     fireEvent.drop(stage, { dataTransfer });
     expect(onImageFile).not.toHaveBeenCalled();
   });

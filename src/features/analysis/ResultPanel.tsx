@@ -8,6 +8,7 @@ interface ResultPanelProps {
   generationState: GenerationState;
   captureMetadata?: CaptureMetadata;
   onRefine?: () => void;
+  disabled?: boolean;
 }
 
 const rows = [
@@ -35,7 +36,7 @@ const captureRows: Array<[keyof CaptureMetadata, string]> = [
   ["whiteBalance", "白平衡"], ["capturedAt", "拍摄时间"], ["colorSpace", "色彩空间"],
 ];
 
-export function ResultPanel({ result, generationState, captureMetadata, onRefine }: ResultPanelProps) {
+export function ResultPanel({ result, generationState, captureMetadata, onRefine, disabled }: ResultPanelProps) {
   const analysis = result?.analysis;
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<"all" | AnalysisGroup>("all");
@@ -116,14 +117,14 @@ export function ResultPanel({ result, generationState, captureMetadata, onRefine
         <div className="analysis-header-actions">{showPanelStatus ? <Badge status={badgeStatus} text={status} /> : null}{onRefine ? <Button size="mini" icon={<IconEdit />} onClick={onRefine}>校正</Button> : null}</div>
       </header>
       <div className="analysis-subhead">
-        <Radio.Group className="analysis-group-nav" type="button" size="mini" value={activeGroup} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">
+        <Radio.Group className="analysis-group-nav" type="button" size="mini" value={activeGroup} disabled={disabled} onChange={(value) => locateGroup(value as "all" | AnalysisGroup)} aria-label="摄影测定分组定位">
           <Radio value="all">全部</Radio><Radio value="frame">画面</Radio><Radio value="light">光影</Radio><Radio value="imaging">成像</Radio>
         </Radio.Group>
         <div className="analysis-expand-actions"><span>{completedCount}/{rows.length}</span><Dropdown trigger="click" position="br" droplist={<Menu onClickMenuItem={(key) => {
           if (key === "capture") setCaptureOpen(true);
           if (key === "group") toggleGroup();
           if (key === "all") setExpandedKeys(allExpanded ? new Set() : new Set(expandableKeys));
-        }}><Menu.Item key="capture"><IconCamera />文件实拍信息{captureCount ? ` ${captureCount}` : ""}</Menu.Item><Menu.Item key="group" disabled={!expandableInGroup.length}>{groupExpanded ? "收起当前组" : "展开当前组"}</Menu.Item><Menu.Item key="all" disabled={!expandableKeys.length}>{allExpanded ? "收起全部" : "展开全部"}</Menu.Item></Menu>}><Button type="text" size="mini" icon={<IconMore />} aria-label="摄影测定更多操作" /></Dropdown></div>
+        }}><Menu.Item key="capture"><IconCamera />文件实拍信息{captureCount ? ` ${captureCount}` : ""}</Menu.Item><Menu.Item key="group" disabled={!expandableInGroup.length}>{groupExpanded ? "收起当前组" : "展开当前组"}</Menu.Item><Menu.Item key="all" disabled={!expandableKeys.length}>{allExpanded ? "收起全部" : "展开全部"}</Menu.Item></Menu>}><Button disabled={disabled} type="text" size="mini" icon={<IconMore />} aria-label="摄影测定更多操作" /></Dropdown></div>
       </div>
       <div ref={gridRef} className="analysis-grid" aria-live={loading ? "off" : "polite"} aria-busy={loading}>
         {!result && generationState === "idle" ? (
@@ -152,6 +153,7 @@ export function ResultPanel({ result, generationState, captureMetadata, onRefine
                     className="analysis-toggle"
                     type="text"
                     size="mini"
+                    disabled={disabled}
                     icon={expanded ? <IconUp /> : <IconDown />}
                     onClick={() => toggleItem(key)}
                     aria-expanded={expanded}

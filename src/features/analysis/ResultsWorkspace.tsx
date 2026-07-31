@@ -30,6 +30,8 @@ interface ResultsWorkspaceProps {
   initialSplitPercent?: number;
   onSplitChange?: (percent?: number) => void;
   previewInteraction?: "refinement" | "compare";
+  analysisLocked?: boolean;
+  onBusyChange?: (source: "revision" | "prompt", busy: boolean) => void;
 }
 
 const DIVIDER_HEIGHT = 10;
@@ -44,6 +46,8 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
   const [refineRequestId, setRefineRequestId] = useState(props.previewInteraction === "refinement" ? 1 : 0);
   const streaming = ["connecting", "streaming", "fallback", "stopping"].includes(generationState);
   const displayResult = result ? activeResultView(result) : null;
+  const reportRevisionBusy = useCallback((busy: boolean) => props.onBusyChange?.("revision", busy), [props.onBusyChange]);
+  const reportPromptBusy = useCallback((busy: boolean) => props.onBusyChange?.("prompt", busy), [props.onBusyChange]);
 
   const limits = useCallback(() => {
     const total = columnRef.current?.clientHeight ?? 0;
@@ -116,7 +120,7 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
   }, [analysisHeight, fitToContent, limits, manual, resizeTo, streaming]);
 
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    if (props.analysisLocked || event.button !== 0) return;
     const { available } = limits();
     dragRef.current = {
       pointerId: event.pointerId,
@@ -144,6 +148,7 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
   };
 
   const handleDividerKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (props.analysisLocked) return;
     if (event.key === "Enter" || event.key === "Home") {
       event.preventDefault();
       setManual(false);
@@ -164,13 +169,13 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
 
   return (
     <div className="result-workspace">
-      <RevisionBar result={result} isFinal={props.isFinal} imageDataUrl={props.imageDataUrl} hasApiKey={props.hasApiKey} captureMetadata={props.captureMetadata} onResultChange={props.onResultChange} onCopy={props.onCopy} onOpenLogs={props.onOpenLogs} onExportDiagnostic={props.onExportDiagnostic} refineRequestId={refineRequestId} previewInteraction={props.previewInteraction === "compare" ? "compare" : undefined} />
+      <RevisionBar result={result} isFinal={props.isFinal} imageDataUrl={props.imageDataUrl} hasApiKey={props.hasApiKey} captureMetadata={props.captureMetadata} onResultChange={props.onResultChange} onCopy={props.onCopy} onOpenLogs={props.onOpenLogs} onExportDiagnostic={props.onExportDiagnostic} refineRequestId={refineRequestId} previewInteraction={props.previewInteraction === "compare" ? "compare" : undefined} disabled={props.analysisLocked} onBusyChange={reportRevisionBusy} />
       <div
         ref={columnRef}
         className={`result-column ${manual ? "is-manual" : "is-auto"}`}
         style={analysisHeight ? { "--analysis-height": `${analysisHeight}px` } as React.CSSProperties : undefined}
       >
-      <ResultPanel result={displayResult} generationState={generationState} captureMetadata={props.captureMetadata} onRefine={() => setRefineRequestId((value) => value + 1)} />
+      <ResultPanel result={displayResult} generationState={generationState} captureMetadata={props.captureMetadata} onRefine={props.analysisLocked ? undefined : () => setRefineRequestId((value) => value + 1)} disabled={props.analysisLocked} />
       <div
         className="result-divider"
         role="separator"
@@ -179,18 +184,19 @@ export function ResultsWorkspace(props: ResultsWorkspaceProps) {
         aria-valuemin={28}
         aria-valuemax={50}
         aria-valuenow={splitPercent}
-        tabIndex={0}
+        tabIndex={props.analysisLocked ? -1 : 0}
+        aria-disabled={props.analysisLocked}
         title={manual ? "拖动调整高度，双击恢复自动布局" : "自动布局，拖动可手动调整"}
         onPointerDown={startResize}
         onPointerMove={moveResize}
         onPointerUp={stopResize}
         onPointerCancel={stopResize}
-        onDoubleClick={() => { setManual(false); fitToContent(); onSplitChange?.(undefined); }}
+        onDoubleClick={() => { if (props.analysisLocked) return; setManual(false); fitToContent(); onSplitChange?.(undefined); }}
         onKeyDown={handleDividerKeyDown}
       >
         <span aria-hidden="true" />
       </div>
-      <PromptPanel {...props} />
+      <PromptPanel {...props} disabled={props.analysisLocked} onBusyChange={reportPromptBusy} />
       </div>
     </div>
   );

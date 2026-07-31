@@ -25,6 +25,8 @@ interface PromptPanelProps {
   onExportDiagnostic?: (diagnosticId: string) => void;
   canSaveHistory?: boolean;
   onSaveHistory?: () => void;
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const targetLabels: Record<PromptOptimizationTarget, string> = {
@@ -34,7 +36,7 @@ const targetLabels: Record<PromptOptimizationTarget, string> = {
   sdxl: "SDXL",
 };
 
-export function PromptPanel({ result, error, generationState, isFinal, canRegenerate, aspectRatio, onCopy, onCopyFull, onRegenerate, onExport, onResultChange, onRetry, onOpenSettings, onOpenLogs, onExportDiagnostic, canSaveHistory, onSaveHistory }: PromptPanelProps) {
+export function PromptPanel({ result, error, generationState, isFinal, canRegenerate, aspectRatio, onCopy, onCopyFull, onRegenerate, onExport, onResultChange, onRetry, onOpenSettings, onOpenLogs, onExportDiagnostic, canSaveHistory, onSaveHistory, disabled = false, onBusyChange }: PromptPanelProps) {
   const [message, messageContext] = Message.useMessage();
   const [language, setLanguage] = useState<"zh" | "en">("zh");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -88,12 +90,19 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
     if (optimizationInteractionRef.current) void cancelReversePrompt(optimizationInteractionRef.current);
     streamPrinterRef.current?.reset();
   }, []);
+  useEffect(() => {
+    if (disabled && !optimizing) setDrawerOpen(false);
+  }, [disabled, optimizing]);
 
   useEffect(() => {
     if (!optimizing) return;
     const timer = window.setInterval(() => setOptimizationElapsedMs(Date.now() - optimizationStartedAtRef.current), 100);
     return () => window.clearInterval(timer);
   }, [optimizing]);
+  useEffect(() => {
+    onBusyChange?.(optimizing);
+    return () => onBusyChange?.(false);
+  }, [onBusyChange, optimizing]);
 
   const sourceOptions = useMemo(() => [
     { label: "原始结果", value: "base" },
@@ -205,17 +214,17 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         <div className="prompt-meta-actions">
           <span className="prompt-format">共 {characterCount.toLocaleString("zh-CN")} 字</span>
           {optimizationPartial ? <Tag color="orange">未完成版本</Tag> : null}
-          {canSaveHistory ? <Button size="mini" icon={<IconSave />} onClick={onSaveHistory}>保存历史</Button> : null}
+          {canSaveHistory ? <Button size="mini" icon={<IconSave />} disabled={disabled} onClick={onSaveHistory}>保存历史</Button> : null}
         </div>
       </header>
       <div className="code-editor">
         {error ? (
           <Alert type="error" title={`生成失败 · ${error.code}`} content={error.message} action={(
             <div className="error-actions">
-              <Button size="mini" disabled={!onRetry} onClick={onRetry}>重试</Button>
-              <Button size="mini" disabled={!onOpenSettings} onClick={onOpenSettings}>打开设置</Button>
-              <Button size="mini" disabled={!onOpenLogs} onClick={() => onOpenLogs?.(error.providerRequestId ?? error.interactionId)}>查看关联日志</Button>
-              {error.diagnosticId ? <Button size="mini" disabled={!onExportDiagnostic} onClick={() => onExportDiagnostic?.(error.diagnosticId!)}>导出诊断</Button> : null}
+              <Button size="mini" disabled={disabled || !onRetry} onClick={onRetry}>重试</Button>
+              <Button size="mini" disabled={disabled || !onOpenSettings} onClick={onOpenSettings}>打开设置</Button>
+              <Button size="mini" disabled={disabled || !onOpenLogs} onClick={() => onOpenLogs?.(error.providerRequestId ?? error.interactionId)}>查看关联日志</Button>
+              {error.diagnosticId ? <Button size="mini" disabled={disabled || !onExportDiagnostic} onClick={() => onExportDiagnostic?.(error.diagnosticId!)}>导出诊断</Button> : null}
             </div>
           )} />
         ) : null}
@@ -231,14 +240,14 @@ export function PromptPanel({ result, error, generationState, isFinal, canRegene
         </div>
         <div className="editor-actions" role="toolbar" aria-label="提示词操作">
           <div className="editor-copy-actions">
-            <Tooltip content="复制当前语言提示词"><Button type="primary" icon={<IconCopy />} disabled={!editorContent} onClick={() => onCopy(editorContent)}>复制提示词</Button></Tooltip>
-            <Tooltip content="复制摄影测定、双语提示词和生成信息"><Button icon={<IconCopy />} disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial) || !onCopyFull} onClick={() => result && onCopyFull?.(result)}>复制完整结果</Button></Tooltip>
+            <Tooltip content="复制当前语言提示词"><Button type="primary" icon={<IconCopy />} disabled={disabled || !editorContent} onClick={() => onCopy(editorContent)}>复制提示词</Button></Tooltip>
+            <Tooltip content="复制摄影测定、双语提示词和生成信息"><Button icon={<IconCopy />} disabled={disabled || !result || !isFinal || optimizing || Boolean(optimizationPartial) || !onCopyFull} onClick={() => result && onCopyFull?.(result)}>复制完整结果</Button></Tooltip>
           </div>
           <div className="editor-workflow-actions">
-            <Tooltip content={versions.length >= MAX_RESULT_REVISIONS ? `每个结果最多保存 ${MAX_RESULT_REVISIONS} 个派生修订` : "优化当前提示词"}><Button icon={<IconEdit />} disabled={!result || !isFinal || loading || optimizing || !onResultChange || versions.length >= MAX_RESULT_REVISIONS} onClick={() => { setSourceVersionId(activeVersion?.id ?? "base"); setOptimizationState("idle"); setOptimizationError(undefined); setDrawerOpen(true); }}>优化</Button></Tooltip>
-            <Tooltip content="重新生成"><Button className="compact-action" icon={<IconRefresh />} aria-label="重新生成" disabled={loading || optimizing || !canRegenerate} onClick={onRegenerate}><span>重新生成</span></Button></Tooltip>
-            <Dropdown droplist={exportMenu} position="br" trigger="click" disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial)}>
-              <Tooltip content="选择结果导出格式"><Button className="compact-action" icon={<IconDownload />} aria-label="导出" disabled={!result || !isFinal || optimizing || Boolean(optimizationPartial)}><span>导出</span></Button></Tooltip>
+            <Tooltip content={versions.length >= MAX_RESULT_REVISIONS ? `每个结果最多保存 ${MAX_RESULT_REVISIONS} 个派生修订` : "优化当前提示词"}><Button icon={<IconEdit />} disabled={disabled || !result || !isFinal || loading || optimizing || !onResultChange || versions.length >= MAX_RESULT_REVISIONS} onClick={() => { setSourceVersionId(activeVersion?.id ?? "base"); setOptimizationState("idle"); setOptimizationError(undefined); setDrawerOpen(true); }}>优化</Button></Tooltip>
+            <Tooltip content="重新分析"><Button className="compact-action" icon={<IconRefresh />} aria-label="重新分析" disabled={disabled || loading || optimizing || !canRegenerate} onClick={onRegenerate}><span>重新分析</span></Button></Tooltip>
+            <Dropdown droplist={exportMenu} position="br" trigger="click" disabled={disabled || !result || !isFinal || optimizing || Boolean(optimizationPartial)}>
+              <Tooltip content="选择结果导出格式"><Button className="compact-action" icon={<IconDownload />} aria-label="导出" disabled={disabled || !result || !isFinal || optimizing || Boolean(optimizationPartial)}><span>导出</span></Button></Tooltip>
             </Dropdown>
           </div>
         </div>

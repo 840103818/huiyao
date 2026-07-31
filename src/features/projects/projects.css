@@ -1,4 +1,5 @@
 .project-sidebar { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto; gap: 6px; padding: 9px; border-right: 1px solid var(--border); background: var(--sidebar-bg); }
+.project-sidebar-content { display: contents; }
 .project-switcher, .project-search-row, .preset-row, .queue-actions, .batch-toolbar { display: flex; align-items: center; gap: 6px; }
 .project-switcher .arco-select, .project-search-row .arco-input-group, .preset-row .arco-select { min-width: 0; flex: 1; }
 .project-switcher .arco-select-view, .project-search-row .arco-input-wrapper, .project-search-row .arco-select-view, .preset-row .arco-select-view { border-color: transparent; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
@@ -43,7 +44,6 @@
 .preset-requirements { margin-top: 10px; }
 .preset-editor-field { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
 .preset-editor-field .arco-radio-group { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-.preset-editor-select-popup { z-index: 1060 !important; }
 
 .project-overview { position: relative; min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
 .overview-content { width: min(960px, calc(100% - 72px)); margin: 0 auto; padding: 48px 0 56px; }

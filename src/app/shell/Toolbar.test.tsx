@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import packageMetadata from "../../../package.json";
 import { Toolbar } from "./Toolbar";
@@ -32,5 +32,16 @@ describe("Toolbar", () => {
     );
     expect(screen.getByText("流式解析")).toBeInTheDocument();
     expect(screen.getByText("1.2 秒")).toBeInTheDocument();
+  });
+
+  it("keeps a global stop action available while navigation is locked", () => {
+    const onStop = vi.fn();
+    render(<Toolbar sidebarCollapsed compactHistory view="workspace" generationState="streaming" elapsedMs={1_240} disabled onStop={onStop} onToggleSidebar={vi.fn()} onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "打开历史记录" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "运行日志" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "设置" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "停止生成" }));
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 });

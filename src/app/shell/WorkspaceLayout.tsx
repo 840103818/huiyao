@@ -18,6 +18,7 @@ interface WorkspaceLayoutProps {
   inputSplitPercent?: number;
   onSidebarWidthChange: (value?: number) => void;
   onInputSplitChange: (value?: number) => void;
+  locked?: boolean;
 }
 
 type DragState = {
@@ -39,6 +40,7 @@ export function WorkspaceLayout({
   inputSplitPercent,
   onSidebarWidthChange,
   onInputSplitChange,
+  locked,
 }: WorkspaceLayoutProps) {
   const contentRef = useRef<HTMLElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -64,7 +66,7 @@ export function WorkspaceLayout({
   }, [inputSplitPercent]);
 
   const startDrag = (kind: DragState["kind"], event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    if (locked || event.button !== 0) return;
     dragRef.current = {
       kind,
       pointerId: event.pointerId,
@@ -95,6 +97,7 @@ export function WorkspaceLayout({
   };
 
   const handleKey = (kind: DragState["kind"], event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (locked) return;
     if (event.key === "Home" || event.key === "Enter") {
       event.preventDefault();
       if (kind === "sidebar") {
@@ -121,6 +124,7 @@ export function WorkspaceLayout({
   };
 
   const reset = (kind: DragState["kind"]) => {
+    if (locked) return;
     if (kind === "sidebar") {
       updateSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
       onSidebarWidthChange(undefined);
@@ -148,7 +152,8 @@ export function WorkspaceLayout({
           aria-valuemin={MIN_SIDEBAR_WIDTH}
           aria-valuemax={MAX_SIDEBAR_WIDTH}
           aria-valuenow={Math.round(liveSidebarWidth)}
-          tabIndex={0}
+          tabIndex={locked ? -1 : 0}
+          aria-disabled={locked}
           onPointerDown={(event) => startDrag("sidebar", event)}
           onPointerMove={moveDrag}
           onPointerUp={stopDrag}
@@ -169,7 +174,8 @@ export function WorkspaceLayout({
               aria-valuemin={MIN_INPUT_SPLIT}
               aria-valuemax={MAX_INPUT_SPLIT}
               aria-valuenow={Math.round(liveInputSplit)}
-              tabIndex={0}
+              tabIndex={locked ? -1 : 0}
+              aria-disabled={locked}
               onPointerDown={(event) => startDrag("input", event)}
               onPointerMove={moveDrag}
               onPointerUp={stopDrag}

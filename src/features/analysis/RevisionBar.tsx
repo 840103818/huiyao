@@ -28,9 +28,11 @@ interface RevisionBarProps {
   onExportDiagnostic?: (diagnosticId: string) => void;
   refineRequestId?: number;
   previewInteraction?: "compare";
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureMetadata, onResultChange, onCopy, onOpenLogs, onExportDiagnostic, refineRequestId = 0, previewInteraction }: RevisionBarProps) {
+export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureMetadata, onResultChange, onCopy, onOpenLogs, onExportDiagnostic, refineRequestId = 0, previewInteraction, disabled = false, onBusyChange }: RevisionBarProps) {
   const revisions = result ? resultRevisions(result) : [];
   const active = result ? activeResultRevision(result) : undefined;
   const view = result ? activeResultView(result) : undefined;
@@ -62,6 +64,18 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
   }));
 
   useEffect(() => { lockedRef.current = locked; }, [locked]);
+  useEffect(() => {
+    onBusyChange?.(saving || refining || syncing);
+    return () => onBusyChange?.(false);
+  }, [onBusyChange, refining, saving, syncing]);
+  useEffect(() => {
+    if (!disabled) return;
+    setEditorOpen(false);
+    setCompareOpen(false);
+    setDeleteConfirmOpen(false);
+    setRevisionMenuOpen(false);
+    setPromptEditorOpen(false);
+  }, [disabled]);
   useEffect(() => () => refinementPrinterRef.current.cancel(), []);
   useEffect(() => { if (deleteConfirmOpen) setRevisionMenuOpen(false); }, [deleteConfirmOpen]);
 
@@ -256,7 +270,7 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
     }
     if (key === "prompt-edit") openPromptEditor();
     if (key === "delete" && active) setDeleteConfirmOpen(true);
-  }}><Menu.Item key="prompt-edit" disabled={!result || !isFinal || revisions.length >= MAX_RESULT_REVISIONS}><IconEdit />编辑提示词副本</Menu.Item><Menu.Item key="compare" disabled={!revisions.length}><IconEye />比较修订</Menu.Item><Menu.Item className="revision-delete-menu-item" key="delete" disabled={!active}><IconDelete />删除当前修订</Menu.Item></Menu>;
+  }}><Menu.Item key="prompt-edit" disabled={disabled || !result || !isFinal || revisions.length >= MAX_RESULT_REVISIONS}><IconEdit />编辑提示词副本</Menu.Item><Menu.Item key="compare" disabled={disabled || !revisions.length}><IconEye />比较修订</Menu.Item><Menu.Item className="revision-delete-menu-item" key="delete" disabled={disabled || !active}><IconDelete />删除当前修订</Menu.Item></Menu>;
   const removalCount = active ? revisionRemovalIds(revisions, active.id).size : 0;
   const errorContent = error ? <div className="revision-error-content">
     <span>{error.message}（{error.code}）</span>
@@ -271,12 +285,12 @@ export function RevisionBar({ result, isFinal, imageDataUrl, hasApiKey, captureM
       <div className="revision-bar" role="toolbar" aria-label="结果修订">
         <div className="revision-context">
           <span>当前修订</span>
-          <Select size="mini" aria-label="当前结果修订" value={active?.id ?? "base"} options={options} disabled={!result} onChange={(id) => result && void persist(withActiveRevision(result, id === "base" ? undefined : id))} />
+          <Select size="mini" aria-label="当前结果修订" value={active?.id ?? "base"} options={options} disabled={disabled || !result} onChange={(id) => result && void persist(withActiveRevision(result, id === "base" ? undefined : id))} />
           {active ? <Tag className={`revision-sync revision-sync-${active.syncState}`}>{active.syncState === "synced" ? "已同步" : active.syncState === "failed" ? "同步失败" : "本地草稿"}</Tag> : <Tag>模型原始结果</Tag>}
         </div>
         <div className="revision-actions">
-          {active && active.syncState !== "synced" ? <Button size="mini" type="primary" icon={<IconRefresh />} loading={syncing} disabled={!hasApiKey} onClick={() => void syncPrompts()}>同步提示词</Button> : null}
-          <Dropdown trigger="click" position="br" droplist={moreMenu} popupVisible={revisionMenuOpen} onVisibleChange={setRevisionMenuOpen}><Button size="mini" type="text" icon={<IconMore />} aria-label="修订更多操作" /></Dropdown>
+          {active && active.syncState !== "synced" ? <Button size="mini" type="primary" icon={<IconRefresh />} loading={syncing} disabled={disabled || !hasApiKey} onClick={() => void syncPrompts()}>同步提示词</Button> : null}
+          <Dropdown trigger="click" position="br" droplist={moreMenu} popupVisible={revisionMenuOpen} onVisibleChange={(visible) => { if (!disabled) setRevisionMenuOpen(visible); }} disabled={disabled}><Button size="mini" type="text" icon={<IconMore />} disabled={disabled} aria-label="修订更多操作" /></Dropdown>
         </div>
       </div>
       {error && !editorOpen ? <Alert className="revision-error" type="error" content={errorContent} closable onClose={() => setError(undefined)} /> : null}

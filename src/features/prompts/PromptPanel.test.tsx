@@ -91,6 +91,20 @@ describe("PromptPanel", () => {
     await waitFor(() => expect(onResultChange).toHaveBeenCalledTimes(1));
   });
 
+  it("reports optimization busy state to the workspace", async () => {
+    let resolveOptimization: (value: { prompts: { zh: string; en: string }; negativePrompts: { zh: string; en: string }; metadata: ReverseResult["metadata"] }) => void = () => undefined;
+    bridgeMocks.runPromptOptimization.mockImplementation(() => new Promise((resolve) => { resolveOptimization = resolve; }));
+    const onBusyChange = vi.fn();
+    render(<PromptPanel result={result} generationState="complete" isFinal canRegenerate onCopy={vi.fn()} onRegenerate={vi.fn()} onExport={vi.fn()} onResultChange={vi.fn()} onBusyChange={onBusyChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "优化" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始优化" }));
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(true));
+
+    await act(async () => resolveOptimization({ prompts: result.prompts, negativePrompts: { zh: "", en: "" }, metadata: result.metadata }));
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+  });
+
   it("flushes received optimization content on stop without creating a version", async () => {
     let rejectOptimization: (reason: unknown) => void = () => undefined;
     bridgeMocks.runPromptOptimization.mockImplementation((_request, onEvent) => {
@@ -127,7 +141,7 @@ describe("PromptPanel", () => {
     rerender(<PromptPanel result={{ ...result, prompts: { zh: "部分", en: "" } }} generationState="streaming" isFinal={false} canRegenerate {...props} />);
     expectStableToolbar();
     expect(screen.getByLabelText("提示词正文")).toHaveTextContent("部分");
-    expect(screen.getByRole("button", { name: "重新生成" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "重新分析" })).toBeDisabled();
 
     rerender(<PromptPanel result={result} generationState="complete" isFinal canRegenerate {...props} />);
     expectStableToolbar();
@@ -135,7 +149,7 @@ describe("PromptPanel", () => {
     expect(screen.getByRole("button", { name: "复制完整结果" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "复制完整结果" }));
     expect(props.onCopyFull).toHaveBeenCalledWith(result);
-    expect(screen.getByRole("button", { name: "重新生成" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "重新分析" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "导出" })).toBeEnabled();
 
     rerender(<PromptPanel result={null} error={{ code: "invalid_response", message: "响应格式无效", diagnosticId: "diag-1" }} generationState="idle" isFinal={false} canRegenerate={false} {...props} />);

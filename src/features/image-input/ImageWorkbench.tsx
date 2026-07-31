@@ -10,7 +10,6 @@ import {
   IconRefresh,
   IconScan,
   IconSettings,
-  IconStop,
   IconZoomIn,
   IconZoomOut,
 } from "@arco-design/web-react/icon";
@@ -49,7 +48,7 @@ interface ImageWorkbenchProps {
   onZoomChange: (value: number) => void;
   onFitModeChange: (value: "contain" | "cover") => void;
   onGenerate: () => void;
-  onStop: () => void;
+  generateLabel?: string;
   onConfigure?: () => void;
   originalStatus?: "staged" | "retained" | "thumbnail" | "loading" | "error";
   onExportOriginal?: () => void;
@@ -59,7 +58,7 @@ interface ImageWorkbenchProps {
 export function ImageWorkbench({
   image, displayImage, imageInfo, requirements, outputLanguage, detailLevel, zoom, fitMode,
   loading, generationState, hasApiKey = true, onImageFile, onImageFiles, onRequirementsChange, onOutputLanguageChange,
-  onDetailLevelChange, onZoomChange, onFitModeChange, onGenerate, onStop, onConfigure,
+  onDetailLevelChange, onZoomChange, onFitModeChange, onGenerate, generateLabel = "开始反推", onConfigure,
   originalStatus = "thumbnail", onExportOriginal, onRemoveImage, hasUnsavedResult = false,
   elapsedMs = 0, firstTokenMs, requestStarted = false, receivedCharacters = 0, completedItems = 0, totalItems = 10,
 }: ImageWorkbenchProps) {
@@ -77,6 +76,12 @@ export function ImageWorkbench({
   const inputStatus = loading ? "分析中" : displayImage ? "图像就绪" : "等待图片";
 
   useEffect(() => setPan({ x: 0, y: 0 }), [displayImage, fitMode]);
+  useEffect(() => {
+    if (!loading) return;
+    setViewerOpen(false);
+    setParametersOpen(false);
+    setDragActive(false);
+  }, [loading]);
   useEffect(() => {
     if (generationState !== "complete") {
       setShowCompletion(false);
@@ -221,7 +226,7 @@ export function ImageWorkbench({
     else if (files[0]) chooseFile(files[0]);
   };
   const handleStageKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!displayImage) return;
+    if (!displayImage || loading) return;
     if (event.key === "Enter") {
       event.preventDefault();
       setViewerOpen(true);
@@ -249,10 +254,10 @@ export function ImageWorkbench({
         : originalStatus === "error" ? "原图不可用" : "仅保留缩略图";
   const moreMenu = (
     <Menu onClickMenuItem={(key) => {
-      if (key === "export") onExportOriginal?.();
+      if (key === "export" && !loading) onExportOriginal?.();
       else if (key === "remove") removeImage();
     }}>
-      <Menu.Item key="export" disabled={!onExportOriginal || originalStatus !== "retained"}><IconDownload />导出原图</Menu.Item>
+      <Menu.Item key="export" disabled={loading || !onExportOriginal || originalStatus !== "retained"}><IconDownload />导出原图</Menu.Item>
       <Menu.Item key="remove" disabled={!displayImage || loading || processing || !onRemoveImage}><IconDelete />移除图片</Menu.Item>
     </Menu>
   );
@@ -268,10 +273,10 @@ export function ImageWorkbench({
           <div
             ref={stageRef}
             className={`image-stage ${zoom > 100 || fitMode === "cover" ? "can-pan" : ""} ${loading ? "is-processing" : ""}`}
-            tabIndex={displayImage ? 0 : -1}
+            tabIndex={displayImage && !loading ? 0 : -1}
             aria-label={displayImage ? "视觉输入画布" : undefined}
             onWheel={handleWheel}
-            onDoubleClick={(event) => { if (displayImage && event.target === event.currentTarget) setViewerOpen(true); }}
+            onDoubleClick={(event) => { if (!loading && displayImage && event.target === event.currentTarget) setViewerOpen(true); }}
             onKeyDown={handleStageKeyDown}
             onPointerDown={beginPan}
             onPointerMove={movePan}
@@ -310,6 +315,7 @@ export function ImageWorkbench({
             {displayImage && !parametersOpen ? (
               <div
                 className="image-floating-tools"
+                inert={loading ? true : undefined}
                 role="toolbar"
                 aria-label="图片画布工具"
                 onPointerDown={(event) => event.stopPropagation()}
@@ -352,16 +358,21 @@ export function ImageWorkbench({
           <Upload accept="image/png,image/jpeg,image/webp" showUploadList={false} autoUpload={false} disabled={loading} beforeUpload={chooseFile}>
             <Button icon={<IconImage />} loading={processing} disabled={loading}>{displayImage ? "替换图片" : "选择图片"}</Button>
           </Upload>
-          <Button icon={<IconSettings />} disabled={processing} onClick={() => setParametersOpen(true)}>反推参数</Button>
-          <Button
-            className="generate-action"
-            type="primary"
-            status={loading ? "danger" : undefined}
-            loading={generationState === "stopping"}
-            icon={loading ? <IconStop /> : <IconPlayArrow />}
-            onClick={loading ? onStop : hasApiKey ? onGenerate : onConfigure}
-            disabled={!loading && hasApiKey && !image?.modelDataUrl}
-          >{generationState === "stopping" ? "正在停止" : loading ? "停止生成" : hasApiKey ? "开始反推" : "配置模型服务"}</Button>
+          <Button icon={<IconSettings />} disabled={processing || loading} onClick={() => setParametersOpen(true)}>反推参数</Button>
+          {loading ? (
+            <div className="generate-action analysis-action-status" role="status">
+              <span aria-hidden="true" />
+              {generationState === "stopping" ? "停止收尾中" : "分析进行中"}
+            </div>
+          ) : (
+            <Button
+              className="generate-action"
+              type="primary"
+              icon={<IconPlayArrow />}
+              onClick={hasApiKey ? onGenerate : onConfigure}
+              disabled={hasApiKey && !image?.modelDataUrl}
+            >{hasApiKey ? generateLabel : "配置模型服务"}</Button>
+          )}
         </footer>
       </div>
       <Drawer
@@ -431,7 +442,7 @@ export function ImageWorkbench({
           </div>
         </div>
       </Drawer>
-      {viewerOpen && displayImage
+      {viewerOpen && displayImage && !loading
         ? createPortal(
             <ImageViewer src={displayImage} alt={imageInfo?.name || "图片预览"} info={imageInfo} onClose={() => setViewerOpen(false)} />,
             document.body,

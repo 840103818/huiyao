@@ -7,17 +7,19 @@ import { clipboardTimestamp, isTextEntryTarget } from "./workspace";
 interface ShortcutOptions {
   view: AppView;
   loading: boolean;
+  blocked?: boolean;
   onGenerate: () => void | Promise<void>;
   onStop: () => void | Promise<void>;
 }
 
-export function useWorkspaceShortcuts({ view, loading, onGenerate, onStop }: ShortcutOptions): void {
+export function useWorkspaceShortcuts({ view, loading, blocked = false, onGenerate, onStop }: ShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (view !== "workspace") return;
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
-        void (loading ? onStop() : onGenerate());
+        if (loading) void onStop();
+        else if (!blocked) void onGenerate();
       } else if (event.key === "Escape" && loading && !document.querySelector('[data-image-viewer="open"]')) {
         event.preventDefault();
         void onStop();
@@ -25,7 +27,7 @@ export function useWorkspaceShortcuts({ view, loading, onGenerate, onStop }: Sho
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loading, onGenerate, onStop, view]);
+  }, [blocked, loading, onGenerate, onStop, view]);
 }
 
 interface PasteOptions {

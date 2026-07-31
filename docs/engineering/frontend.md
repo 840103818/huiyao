@@ -6,9 +6,9 @@
 
 `features/projects/` 管理项目任务栏、概览、批量导入和受控队列。队列并发固定为 1 或 2，单项异常由调度器隔离；只有选中任务把 SSE 增量送入完整结果组件。任务、项目和预设只能通过 `infrastructure/tauri/workspace.ts` 访问 Rust，不写入 `localStorage`。
 
-预设编辑 Modal 内的 Select 使用 `preset-editor-select-popup` 提升弹层，确保详细程度和自动优化选项始终位于全局 Modal 遮罩之上；控件通过明确的无障碍名称参与键盘和自动化操作。
+预设编辑 Modal 内的详细程度和自动优化 Select 使用普通字段容器，并通过 `aria-labelledby` 关联标题。Select 不得放在原生 `label` 内，避免浏览器把一次点击再次转发到内部 input；弹层复用全局 `.arco-trigger-popup` 层级，不维护局部 z-index 补丁。
 
-桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。开发环境还支持脱敏工作区视觉预览：`workspace-preview=1` 显示项目概览，`workspace-preview=task` 显示完整任务结果，`workspace-preview=streaming` 显示生成中间态；`theme-preview=light|dark` 固定截图主题，`interaction-preview=refinement|compare` 打开专业精修关键状态。这些入口只在 `import.meta.env.DEV` 下启用，不调用模型、Keychain、SQLite 或原图接口。
+桌面端无选中任务时显示项目概览；浏览器开发模式继续提供旧单图降级界面，用于无 Tauri 环境的组件调试。开发环境还支持脱敏工作区视觉预览：`workspace-preview=1` 显示项目概览，`workspace-preview=task` 显示完整任务结果，`workspace-preview=streaming` 显示生成中间态；`generation-preview=locked|stopping|stopped` 固定生成控制状态；`theme-preview=light|dark` 固定截图主题，`interaction-preview=refinement|compare` 打开专业精修关键状态。这些入口只在 `import.meta.env.DEV` 下启用，不调用模型、Keychain、SQLite 或原图接口。
 
 `app/shell/WorkspaceLayout.tsx` 负责项目栏与视觉输入/结果的横向布局。它只接收渲染节点和宽度偏好，不持有项目或生成业务状态；拖动期间使用本地实时值，结束后通过 `App` 的工作区偏好更新函数持久化。范围同时在 React、浏览器降级设置和 Rust `WorkspacePreferences::normalized` 中限制。
 
@@ -28,6 +28,12 @@
 ## 状态策略
 
 当前规模使用 React 本地状态和功能 Hook，不引入全局状态库。`App` 只保存跨功能共享状态；面板内部展开、滚动、抽屉和编辑草稿归功能组件所有。
+
+`app/state/analysisRunCoordinator.ts` 统一直接生成、原任务重新分析和队列 worker 的运行生命周期。协调器同步锁存停止意图、登记活动 interaction ID、立即取消迟到请求并等待全部 worker 退出；`analysisLocked` 由顶层传给 Toolbar、项目栏、图片输入、结果区、分隔器和快捷命令。前端不通过透明遮罩伪装禁用状态。
+
+Toolbar 是主分析流程唯一的停止命令入口。项目栏整体进入 `inert`，视觉输入操作栏改为只读运行状态，结果区与工作台分隔器退出 Tab 顺序并忽略指针、键盘和双击。提示词优化、AI 重测或修订保存通过 busy 回调阻止 `Cmd/Ctrl+Enter` 并发启动新的反推，避免旧修订异步写回覆盖新结果。
+
+已完成任务重新分析时，SQLite 中的旧任务继续保持 `completed`，前端仅用 `rerunningTaskId` 显示临时状态。严格最终结果返回后调用 `update_project_task_result` 原子替换结果；停止、失败或卸载只清理临时状态并恢复旧结果。显式创建副本仍调用 `duplicate_project_task`。
 
 顶栏只在非空闲状态渲染运行状态与真实耗时，底部状态栏只渲染已有指标。图片画布复用 `ProcessingStatus` 的 `compact` 展示模式；该模式仅改变组件结构与样式，不建立新的生成状态或跨端契约。
 
